@@ -211,8 +211,17 @@
                 }
             }
 
+            // View Bobbing (Authentic Minecraft Head Bob)
+            let bobY = 0;
+            if (this.onGround && (moveDir.lengthSq() > 0) && !this.flying) {
+                this.cameraBobTimer = (this.cameraBobTimer || 0) + dt * 11;
+                bobY = Math.sin(this.cameraBobTimer) * 0.045;
+            } else {
+                this.cameraBobTimer = 0;
+            }
+
             // Update Camera transform
-            this.camera.position.set(this.x, this.y + this.eyeHeight, this.z);
+            this.camera.position.set(this.x, this.y + this.eyeHeight + bobY, this.z);
             this.camera.rotation.order = 'YXZ';
             this.camera.rotation.y = this.yaw;
             this.camera.rotation.x = this.pitch;

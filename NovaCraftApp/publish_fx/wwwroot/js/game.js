@@ -1,5 +1,15 @@
 // Main Game Engine, Lighting, Input Loops & Interaction for NovaCraft
 (function(global) {
+    // Zero-Crash Safeguard: Prevent uncaught errors from freezing the game loop
+    window.addEventListener('error', function(e) {
+        console.warn('NovaCraft Safe Guard Error:', e.message);
+        e.preventDefault();
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+        console.warn('NovaCraft Safe Guard Rejection:', e.reason);
+        e.preventDefault();
+    });
+
     class Game {
         constructor() {
             this.container = document.getElementById('game-container');
@@ -66,11 +76,37 @@
             this.scene.add(this.moonMesh);
 
             // Block selection wireframe box
-            const wireGeo = new THREE.BoxGeometry(1.005, 1.005, 1.005);
+            const wireGeo = new THREE.BoxGeometry(1.004, 1.004, 1.004);
             const wireMat = new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: true });
             this.highlightBox = new THREE.Mesh(wireGeo, wireMat);
             this.highlightBox.visible = false;
             this.scene.add(this.highlightBox);
+
+            // Realistic Minecraft Breaking / Crack Overlay Box
+            const crackGeo = new THREE.BoxGeometry(1.006, 1.006, 1.006);
+            this.crackMaterial = new THREE.MeshBasicMaterial({
+                transparent: true,
+                opacity: 0.85,
+                depthWrite: false
+            });
+            this.crackBox = new THREE.Mesh(crackGeo, this.crackMaterial);
+            this.crackBox.visible = false;
+            this.scene.add(this.crackBox);
+
+            // Authentic Minecraft Procedural Clouds
+            this.cloudsGroup = new THREE.Group();
+            const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65 });
+            const cloudGeo = new THREE.BoxGeometry(24, 4, 16);
+            for (let cx = -4; cx <= 4; cx++) {
+                for (let cz = -4; cz <= 4; cz++) {
+                    if ((cx * 3 + cz * 7) % 3 === 0) {
+                        const cloudPiece = new THREE.Mesh(cloudGeo, cloudMat);
+                        cloudPiece.position.set(cx * 40, 56, cz * 40);
+                        this.cloudsGroup.add(cloudPiece);
+                    }
+                }
+            }
+            this.scene.add(this.cloudsGroup);
 
             window.addEventListener('resize', () => {
                 this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -90,19 +126,102 @@
             this.inventory = new Inventory();
             this.ui = new UIManager(this, this.inventory, this.player);
             this.saveManager = new SaveManager(this);
+
+            // Bind atlas texture to crack material
+            this.crackMaterial.map = this.atlas.getTexture();
         }
 
         initHandMesh() {
-            // First-person hand / tool item model attached to camera
+            // First-person dynamic hand & 3D held item model attached to camera
             this.handGroup = new THREE.Group();
-            const armGeo = new THREE.BoxGeometry(0.2, 0.6, 0.2);
-            const armMat = new THREE.MeshLambertMaterial({ color: 0xcc8855 });
-            this.armMesh = new THREE.Mesh(armGeo, armMat);
-            this.armMesh.position.set(0.35, -0.35, -0.6);
-            this.armMesh.rotation.set(Math.PI / 4, 0, -Math.PI / 12);
-            this.handGroup.add(this.armMesh);
+            this.handGroup.position.set(0.38, -0.38, -0.55);
+            this.currentHandItemKey = null;
+            this.heldItemMesh = null;
+            this.updateHandMesh(null);
+
             this.camera.add(this.handGroup);
             this.scene.add(this.camera);
+        }
+
+        updateHandMesh(itemKey) {
+            if (this.currentHandItemKey === itemKey && this.heldItemMesh) return;
+            this.currentHandItemKey = itemKey;
+
+            // Clear previous model
+            while (this.handGroup.children.length > 0) {
+                this.handGroup.remove(this.handGroup.children[0]);
+            }
+
+            const itemDef = itemKey ? window.ITEMS[itemKey] : null;
+
+            if (itemDef?.blockId) {
+                // Miniature 3D Voxel Block in hand
+                const blockGeo = new THREE.BoxGeometry(0.28, 0.28, 0.28);
+                this.atlas.applyBlockUVs(blockGeo, itemDef.blockId);
+                const blockMat = new THREE.MeshLambertMaterial({
+                    map: this.atlas.getTexture(),
+                    transparent: true
+                });
+                const blockMesh = new THREE.Mesh(blockGeo, blockMat);
+                blockMesh.rotation.set(0.4, 0.6, 0.1);
+                this.heldItemMesh = blockMesh;
+                this.handGroup.add(blockMesh);
+            } else if (itemDef?.category === 'combat' || itemDef?.category === 'tools') {
+                // 3D Tool / Weapon Model (Handle + Blade/Head)
+                const toolGroup = new THREE.Group();
+                const stickMat = new THREE.MeshLambertMaterial({ color: 0x885522 });
+                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.45, 0.06), stickMat);
+                handle.position.y = -0.05;
+                toolGroup.add(handle);
+
+                // Blade / Head
+                let headColor = 0x999999;
+                if (itemKey.includes('diamond')) headColor = 0x55eeff;
+                else if (itemKey.includes('gold')) headColor = 0xffdd44;
+                else if (itemKey.includes('iron')) headColor = 0xdddddd;
+                else if (itemKey.includes('astral')) headColor = 0xee33ff; // Glowing Astral
+                else if (itemKey.includes('laser')) headColor = 0x44eeff;
+
+                const headMat = new THREE.MeshLambertMaterial({ color: headColor });
+                if (itemKey.includes('sword') || itemKey.includes('blade')) {
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.04), headMat);
+                    blade.position.y = 0.35;
+                    toolGroup.add(blade);
+                } else if (itemKey.includes('pickaxe') || itemKey.includes('drill')) {
+                    const pickHead = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 0.08), headMat);
+                    pickHead.position.y = 0.22;
+                    toolGroup.add(pickHead);
+                } else if (itemKey.includes('axe')) {
+                    const axeHead = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.22, 0.08), headMat);
+                    axeHead.position.set(0.08, 0.2, 0);
+                    toolGroup.add(axeHead);
+                } else {
+                    const shovelHead = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.25, 0.04), headMat);
+                    shovelHead.position.y = 0.24;
+                    toolGroup.add(shovelHead);
+                }
+
+                toolGroup.rotation.set(Math.PI / 4, 0, -Math.PI / 8);
+                this.heldItemMesh = toolGroup;
+                this.handGroup.add(toolGroup);
+            } else {
+                // Default: Steve Arm with Cyan Sleeve
+                const armGroup = new THREE.Group();
+                const sleeveMat = new THREE.MeshLambertMaterial({ color: 0x00a8a8 });
+                const skinMat = new THREE.MeshLambertMaterial({ color: 0xcc8855 });
+
+                const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.3, 0.18), sleeveMat);
+                sleeve.position.y = -0.15;
+                armGroup.add(sleeve);
+
+                const hand = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.32, 0.18), skinMat);
+                hand.position.y = 0.14;
+                armGroup.add(hand);
+
+                armGroup.rotation.set(Math.PI / 4, 0, -Math.PI / 12);
+                this.heldItemMesh = armGroup;
+                this.handGroup.add(armGroup);
+            }
         }
 
         setupInputs() {
@@ -371,7 +490,10 @@
         }
 
         handleMiningTick(dt) {
-            if (this.player.gameMode === 'creative') return;
+            if (this.player.gameMode === 'creative') {
+                this.crackBox.visible = false;
+                return;
+            }
 
             if (this.input.mouseButtons[0]) {
                 const ray = this.player.raycast(4.5);
@@ -389,10 +511,17 @@
 
                         this.player.miningProgress += (dt * speed) / (def.hardness || 1.0);
 
-                        // Digging sound
+                        // Update Crack Overlay Box (0 to 9 stages)
+                        const stage = Math.min(9, Math.floor(this.player.miningProgress * 10));
+                        this.crackBox.visible = true;
+                        this.crackBox.position.set(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5);
+                        this.atlas.applyCrackUVs(this.crackBox.geometry, stage);
+
+                        // Digging sound & particles
                         this.player.breakSoundTimer = (this.player.breakSoundTimer || 0) + dt;
                         if (this.player.breakSoundTimer > 0.22) {
                             this.sound.playDig(def.sound || 'stone');
+                            this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0x888888, 2);
                             this.player.breakSoundTimer = 0;
                         }
 
@@ -401,110 +530,121 @@
                             this.world.setBlock(ray.x, ray.y, ray.z, window.BLOCKS.AIR.id);
                             this.sound.playBreak(def.sound || 'stone');
                             this.player.miningProgress = 0;
+                            this.crackBox.visible = false;
 
                             // Drop item
                             if (def.drop) {
                                 this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, def.drop);
                             }
+                            this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0x888888, 8);
                         }
                         return;
                     }
                 }
             }
             this.player.miningProgress = 0;
+            this.crackBox.visible = false;
         }
 
         // UI Slot Interactions
         handleSlotClick(type, index) {
-            let targetSlot = null;
-            let targetArr = null;
+            try {
+                let targetSlot = null;
+                let targetArr = null;
 
-            if (type === 'player') targetArr = this.inventory.slots;
-            else if (type === 'craft2x2') targetArr = this.inventory.craft2x2;
-            else if (type === 'craft3x3') targetArr = this.inventory.craft3x3;
-            else if (type === 'chest') targetArr = this.inventory.chestSlots;
+                if (type === 'player') targetArr = this.inventory.slots;
+                else if (type === 'craft2x2') targetArr = this.inventory.craft2x2;
+                else if (type === 'craft3x3') targetArr = this.inventory.craft3x3;
+                else if (type === 'chest') targetArr = this.inventory.chestSlots;
 
-            if (!targetArr) return;
+                if (!targetArr) return;
 
-            const cur = this.inventory.cursorItem;
-            const slot = targetArr[index];
+                const cur = this.inventory.cursorItem;
+                const slot = targetArr[index];
 
-            if (!cur && slot) {
-                // Pick up entire stack
-                this.inventory.cursorItem = slot;
-                targetArr[index] = null;
-                this.sound.playPop();
-            } else if (cur && !slot) {
-                // Place cursor stack into slot
-                targetArr[index] = cur;
-                this.inventory.cursorItem = null;
-                this.sound.playPlace();
-            } else if (cur && slot) {
-                if (cur.item === slot.item) {
-                    // Combine
-                    const max = window.ITEMS[cur.item]?.maxStack || 64;
-                    const space = max - slot.count;
-                    const add = Math.min(space, cur.count);
-                    slot.count += add;
-                    cur.count -= add;
-                    if (cur.count <= 0) this.inventory.cursorItem = null;
-                } else {
-                    // Swap
-                    targetArr[index] = cur;
+                if (!cur && slot) {
                     this.inventory.cursorItem = slot;
+                    targetArr[index] = null;
+                    this.sound.playPop();
+                } else if (cur && !slot) {
+                    targetArr[index] = cur;
+                    this.inventory.cursorItem = null;
+                    this.sound.playPlace();
+                } else if (cur && slot) {
+                    if (cur.item === slot.item) {
+                        const max = window.ITEMS[cur.item]?.maxStack || 64;
+                        const space = max - slot.count;
+                        const add = Math.min(space, cur.count);
+                        slot.count += add;
+                        cur.count -= add;
+                        if (cur.count <= 0) this.inventory.cursorItem = null;
+                    } else {
+                        targetArr[index] = cur;
+                        this.inventory.cursorItem = slot;
+                    }
+                    this.sound.playPlace();
                 }
-                this.sound.playPlace();
-            }
 
-            if (type.startsWith('craft')) {
-                this.inventory.updateCraftResult(type === 'craft3x3');
+                if (type.startsWith('craft')) {
+                    this.inventory.updateCraftResult(type === 'craft3x3');
+                }
+                this.refreshModalUI();
+            } catch (err) {
+                console.warn('Slot click safety guard:', err);
             }
-            this.refreshModalUI();
         }
 
         handleCraftResultClick(is3x3 = false) {
-            if (!this.inventory.craftResult) return;
-            const res = this.inventory.craftResult;
+            try {
+                if (!this.inventory.craftResult) return;
+                const res = this.inventory.craftResult;
 
-            if (!this.inventory.cursorItem) {
-                this.inventory.cursorItem = { item: res.item, count: res.count };
-                this.inventory.takeCraftResult(is3x3);
-                this.sound.playPop();
-            } else if (this.inventory.cursorItem.item === res.item) {
-                this.inventory.cursorItem.count += res.count;
-                this.inventory.takeCraftResult(is3x3);
-                this.sound.playPop();
+                if (!this.inventory.cursorItem) {
+                    this.inventory.cursorItem = { item: res.item, count: res.count };
+                    this.inventory.takeCraftResult(is3x3);
+                    this.sound.playPop();
+                } else if (this.inventory.cursorItem.item === res.item) {
+                    this.inventory.cursorItem.count += res.count;
+                    this.inventory.takeCraftResult(is3x3);
+                    this.sound.playPop();
+                }
+                this.refreshModalUI();
+            } catch (err) {
+                console.warn('Craft result safety guard:', err);
             }
-            this.refreshModalUI();
         }
 
         handleFurnaceClick(slotType) {
-            const f = this.inventory.furnace;
-            const cur = this.inventory.cursorItem;
-            const slot = f[slotType];
+            try {
+                const f = this.inventory.furnace;
+                const cur = this.inventory.cursorItem;
+                const slot = f[slotType];
 
-            if (!cur && slot) {
-                this.inventory.cursorItem = slot;
-                f[slotType] = null;
-                this.sound.playPop();
-            } else if (cur && !slot) {
-                if (slotType !== 'output') {
-                    f[slotType] = cur;
-                    this.inventory.cursorItem = null;
-                    this.sound.playPlace();
+                if (!cur && slot) {
+                    this.inventory.cursorItem = slot;
+                    f[slotType] = null;
+                    this.sound.playPop();
+                } else if (cur && !slot) {
+                    if (slotType !== 'output') {
+                        f[slotType] = cur;
+                        this.inventory.cursorItem = null;
+                        this.sound.playPlace();
+                    }
+                } else if (cur && slot) {
+                    if (cur.item === slot.item && slotType !== 'output') {
+                        const max = window.ITEMS[cur.item]?.maxStack || 64;
+                        const space = max - slot.count;
+                        const add = Math.min(space, cur.count);
+                        slot.count += add;
+                        cur.count -= add;
+                        if (cur.count <= 0) this.inventory.cursorItem = null;
+                        this.sound.playPlace();
+                    }
                 }
-            } else if (cur && slot) {
-                if (cur.item === slot.item && slotType !== 'output') {
-                    const max = window.ITEMS[cur.item]?.maxStack || 64;
-                    const space = max - slot.count;
-                    const add = Math.min(space, cur.count);
-                    slot.count += add;
-                    cur.count -= add;
-                    if (cur.count <= 0) this.inventory.cursorItem = null;
-                    this.sound.playPlace();
-                }
+                this.refreshModalUI();
+            } catch (err) {
+                console.warn('Furnace safety guard:', err);
             }
-            this.refreshModalUI();
         }
 
         pickCreativeItem(itemKey) {
@@ -552,6 +692,13 @@
 
             this.sunLight.position.set(sx, sy, 0);
 
+            // Drifting Clouds - Follow player infinite position
+            this.cloudsGroup.position.x = this.player.x;
+            this.cloudsGroup.position.z = (this.cloudsGroup.position.z + dt * 1.5);
+            if (Math.abs(this.cloudsGroup.position.z - this.player.z) > 120) {
+                this.cloudsGroup.position.z = this.player.z;
+            }
+
             // Sky and Fog Colors
             let skyColor = new THREE.Color(0x78a7ff); // day blue
             if (sy < 0) {
@@ -587,37 +734,61 @@
         animate() {
             requestAnimationFrame(() => this.animate());
 
-            const now = performance.now();
-            const dt = Math.min((now - this.lastTime) / 1000, 0.1);
-            this.lastTime = now;
+            try {
+                const now = performance.now();
+                const dt = Math.min((now - this.lastTime) / 1000, 0.1);
+                this.lastTime = now;
 
-            // FPS Counter
-            this.fpsFrames++;
-            this.fpsTime += dt;
-            if (this.fpsTime >= 1.0) {
-                this.currentFPS = Math.round(this.fpsFrames / this.fpsTime);
-                this.fpsFrames = 0;
-                this.fpsTime = 0;
-            }
+                // FPS Counter
+                this.fpsFrames++;
+                this.fpsTime += dt;
+                if (this.fpsTime >= 1.0) {
+                    this.currentFPS = Math.round(this.fpsFrames / this.fpsTime);
+                    this.fpsFrames = 0;
+                    this.fpsTime = 0;
+                }
 
-            if (this.inventory.openMode === 'none') {
                 const heldItem = this.inventory.getSelectedItem();
-                this.player.update(dt, this.input, heldItem);
-                this.handleMiningTick(dt);
-                this.itemManager.update(dt, this.player, this.inventory, this.mobManager);
-                this.mobManager.update(dt, this.player, this.timeOfDay);
-                this.inventory.updateFurnace(dt);
-                this.updateEnvironment(dt);
+                this.updateHandMesh(heldItem?.item);
 
-                // Dynamically load world chunks around player
-                this.world.updateChunksAround(this.player.x, this.player.z, 2);
+                if (this.inventory.openMode === 'none') {
+                    this.player.update(dt, this.input, heldItem);
+                    this.handleMiningTick(dt);
+                    this.itemManager.update(dt, this.player, this.inventory, this.mobManager);
+                    this.mobManager.update(dt, this.player, this.timeOfDay);
+                    this.inventory.updateFurnace(dt);
+                    this.updateEnvironment(dt);
+
+                    // Authentic Hand Bobbing & Swinging Animation
+                    const isMoving = (this.input.keys['KeyW'] || this.input.keys['KeyS'] || this.input.keys['KeyA'] || this.input.keys['KeyD']) && this.player.onGround;
+                    if (isMoving) {
+                        this.walkBobTimer = (this.walkBobTimer || 0) + dt * 11;
+                    } else {
+                        this.walkBobTimer = (this.walkBobTimer || 0) * 0.9;
+                    }
+                    const bobX = Math.cos(this.walkBobTimer || 0) * 0.025;
+                    const bobY = Math.abs(Math.sin(this.walkBobTimer || 0)) * 0.025;
+
+                    // Attack / Mining swing
+                    const swingProgress = this.player.isSwinging ? Math.sin(this.player.handSwing) : 0;
+                    const swingRotX = -swingProgress * 0.75;
+                    const swingRotY = swingProgress * 0.35;
+
+                    this.handGroup.position.set(0.38 + bobX, -0.38 - bobY - (swingProgress * 0.08), -0.55);
+                    this.handGroup.rotation.set(swingRotX, swingRotY, -swingProgress * 0.2);
+
+                    // Infinite World chunk streaming & auto unloading
+                    this.world.updateChunksAround(this.player.x, this.player.z, 3, 5);
+                }
+
+                // Reset one-shot input flags
+                this.input.spaceJustPressed = false;
+
+                this.ui.renderHUD();
+                this.renderer.render(this.scene, this.camera);
+            } catch (frameError) {
+                console.warn('Frame render safety guard caught exception:', frameError);
             }
-
-            // Reset one-shot input flags
-            this.input.spaceJustPressed = false;
-
-            this.ui.renderHUD();
-            this.renderer.render(this.scene, this.camera);
         }
     }
 

@@ -576,6 +576,42 @@
                     this.drawPixel('chest_top', x, y, isBorder ? 70 : 160, isBorder ? 50 : 115, isBorder ? 25 : 65);
                 }
             }
+
+            // 39. DESTRUCTION CRACK STAGES (0 to 9) - Authentic Minecraft Breaking Overlay
+            const crackSeeds = [
+                [[7,7],[8,8],[7,8]],
+                [[7,6],[7,7],[8,8],[7,8],[9,9]],
+                [[6,5],[7,6],[7,7],[8,8],[7,8],[9,9],[10,10],[6,8]],
+                [[5,4],[6,5],[7,6],[7,7],[8,8],[7,8],[9,9],[10,10],[11,11],[6,8],[5,9],[9,6]],
+                [[5,4],[6,5],[7,6],[7,7],[8,8],[7,8],[9,9],[10,10],[11,11],[6,8],[5,9],[9,6],[10,5],[4,10],[8,11],[12,12]],
+                [[4,3],[5,4],[6,5],[7,6],[7,7],[8,8],[7,8],[9,9],[10,10],[11,11],[6,8],[5,9],[9,6],[10,5],[4,10],[8,11],[12,12],[3,11],[8,5],[11,4]],
+                [[4,3],[5,4],[6,5],[7,6],[7,7],[8,8],[7,8],[9,9],[10,10],[11,11],[6,8],[5,9],[9,6],[10,5],[4,10],[8,11],[12,12],[3,11],[8,5],[11,4],[2,12],[12,3],[13,13],[7,13]],
+                [[4,3],[5,4],[6,5],[7,6],[7,7],[8,8],[7,8],[9,9],[10,10],[11,11],[6,8],[5,9],[9,6],[10,5],[4,10],[8,11],[12,12],[3,11],[8,5],[11,4],[2,12],[12,3],[13,13],[7,13],[14,14],[1,13],[13,2],[6,2]],
+                [[4,3],[5,4],[6,5],[7,6],[7,7],[8,8],[7,8],[9,9],[10,10],[11,11],[6,8],[5,9],[9,6],[10,5],[4,10],[8,11],[12,12],[3,11],[8,5],[11,4],[2,12],[12,3],[13,13],[7,13],[14,14],[1,13],[13,2],[6,2],[0,14],[14,1],[15,15],[2,2],[14,7],[2,8]],
+                [[4,3],[5,4],[6,5],[7,6],[7,7],[8,8],[7,8],[9,9],[10,10],[11,11],[6,8],[5,9],[9,6],[10,5],[4,10],[8,11],[12,12],[3,11],[8,5],[11,4],[2,12],[12,3],[13,13],[7,13],[14,14],[1,13],[13,2],[6,2],[0,14],[14,1],[15,15],[2,2],[14,7],[2,8],[0,0],[15,0],[0,15],[7,0],[8,15],[0,7],[15,8],[8,2],[2,14]]
+            ];
+
+            for (let stage = 0; stage < 10; stage++) {
+                const slotName = `destroy_stage_${stage}`;
+                const pts = crackSeeds[stage];
+                // Fill clear first
+                for (let y = 0; y < 16; y++) {
+                    for (let x = 0; x < 16; x++) {
+                        this.drawPixel(slotName, x, y, 0, 0, 0, 0);
+                    }
+                }
+                // Draw crack pixels
+                pts.forEach(p => {
+                    this.drawPixel(slotName, p[0], p[1], 20, 20, 20, 230);
+                });
+            }
+
+            // 40. CLOUDS
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    this.drawPixel('cloud', x, y, 255, 255, 255, 210);
+                }
+            }
         }
 
         // Returns UV mapping object for a block type
@@ -681,6 +717,50 @@
                 default:
                     return { all: 'stone' };
             }
+        }
+
+        // Apply authentic Minecraft block UVs to a standard Three.js BoxGeometry
+        applyBlockUVs(geometry, blockId) {
+            const uvMapping = this.getBlockUVs(blockId);
+            const faces = [
+                uvMapping.side || uvMapping.all, // +X right
+                uvMapping.side || uvMapping.all, // -X left
+                uvMapping.top || uvMapping.all,  // +Y top
+                uvMapping.bottom || uvMapping.all, // -Y bottom
+                uvMapping.front || uvMapping.side || uvMapping.all, // +Z front
+                uvMapping.side || uvMapping.all  // -Z back
+            ];
+
+            const uvAttr = geometry.attributes.uv;
+            const uvArr = uvAttr.array;
+
+            for (let f = 0; f < 6; f++) {
+                const tex = faces[f];
+                const uv = this.getUVs(tex);
+                const offset = f * 8;
+                // 4 corners of standard Three.js Box face
+                uvArr[offset + 0] = uv.uMin; uvArr[offset + 1] = uv.vMax;
+                uvArr[offset + 2] = uv.uMax; uvArr[offset + 3] = uv.vMax;
+                uvArr[offset + 4] = uv.uMin; uvArr[offset + 5] = uv.vMin;
+                uvArr[offset + 6] = uv.uMax; uvArr[offset + 7] = uv.vMin;
+            }
+            uvAttr.needsUpdate = true;
+        }
+
+        // Apply crack stage (0 to 9) to a BoxGeometry
+        applyCrackUVs(geometry, stage) {
+            const uv = this.getUVs(`destroy_stage_${stage}`);
+            const uvAttr = geometry.attributes.uv;
+            const uvArr = uvAttr.array;
+
+            for (let f = 0; f < 6; f++) {
+                const offset = f * 8;
+                uvArr[offset + 0] = uv.uMin; uvArr[offset + 1] = uv.vMax;
+                uvArr[offset + 2] = uv.uMax; uvArr[offset + 3] = uv.vMax;
+                uvArr[offset + 4] = uv.uMin; uvArr[offset + 5] = uv.vMin;
+                uvArr[offset + 6] = uv.uMax; uvArr[offset + 7] = uv.vMin;
+            }
+            uvAttr.needsUpdate = true;
         }
     }
 
