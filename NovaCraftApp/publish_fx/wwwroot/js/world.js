@@ -111,6 +111,22 @@
             return chunk.getBlock(lx, wy, lz);
         }
 
+        getHighestSolidY(wx, wz) {
+            const { cx, cz, lx, lz } = this.worldToChunkCoords(wx, wz);
+            let chunk = this.getOrCreateChunk(cx, cz);
+            if (!chunk.generated) {
+                this.generateChunkTerrain(chunk);
+            }
+            for (let y = CHUNK_HEIGHT - 1; y >= 1; y--) {
+                const bId = chunk.getBlock(lx, y, lz);
+                const def = window.BLOCK_BY_ID[bId];
+                if (def && def.solid && !def.liquid) {
+                    return y;
+                }
+            }
+            return 20; // Fallback sea level
+        }
+
         setBlock(wx, wy, wz, blockId) {
             if (wy < 0 || wy >= CHUNK_HEIGHT) return;
             const { cx, cz, lx, lz } = this.worldToChunkCoords(wx, wz);

@@ -125,10 +125,13 @@
             let origDy = velocity.y * dt;
             let origDz = velocity.z * dt;
 
-            // Liquid checks
-            const headB = this.world.getBlock(Math.floor(entity.x), Math.floor(entity.y + 1.5), Math.floor(entity.z));
+            // Liquid checks (Distinguish head submerged vs feet in water)
+            const eyeY = entity.eyeHeight ? (entity.y + entity.eyeHeight) : (entity.y + 1.5);
+            const headB = this.world.getBlock(Math.floor(entity.x), Math.floor(eyeY), Math.floor(entity.z));
             const feetB = this.world.getBlock(Math.floor(entity.x), Math.floor(entity.y + 0.1), Math.floor(entity.z));
-            entity.inWater = (headB === B.WATER.id || feetB === B.WATER.id);
+            entity.headInWater = (headB === B.WATER.id);
+            entity.feetInWater = (feetB === B.WATER.id);
+            entity.inWater = (entity.headInWater || entity.feetInWater);
             entity.inLava = (headB === B.LAVA.id || feetB === B.LAVA.id);
 
             if (entity.inWater && !entity.flying) {

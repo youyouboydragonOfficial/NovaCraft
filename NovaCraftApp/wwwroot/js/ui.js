@@ -115,13 +115,13 @@
                 this.foodContainer.style.display = 'none';
             }
 
-            // 3. Oxygen bubbles (Only if in water)
-            if (this.player.inWater && this.player.gameMode === 'survival') {
+            // 3. Oxygen bubbles (Only if head is in water or recovering breath)
+            if ((this.player.headInWater || this.player.oxygen < this.player.maxOxygen) && this.player.gameMode === 'survival') {
                 this.oxygenContainer.style.display = 'flex';
                 let oxyHTML = '';
-                const oxy = Math.ceil(this.player.oxygen / 2);
+                const bubbleCount = Math.ceil((this.player.oxygen / this.player.maxOxygen) * 10);
                 for (let i = 0; i < 10; i++) {
-                    oxyHTML += (i < oxy) ? '<span class="bubble">🫧</span>' : '';
+                    oxyHTML += (i < bubbleCount) ? '<span class="bubble">🫧</span>' : '';
                 }
                 this.oxygenContainer.innerHTML = oxyHTML;
             } else {
@@ -233,6 +233,10 @@
             }
             this.closeModal();
             this.addChatMessage(`★ ゲームモード「${mode === 'creative' ? 'クリエイティブ' : 'サバイバル'}」で開始しました！`, '#55ff55');
+            // Guaranteed animal cluster around player upon starting game
+            if (this.game.mobManager) {
+                this.game.mobManager.spawnAnimalCluster(this.player.x, this.player.z, 10);
+            }
         }
 
         renderInventoryModal() {

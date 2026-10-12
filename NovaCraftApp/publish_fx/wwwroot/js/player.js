@@ -31,9 +31,10 @@
             this.maxHealth = 20;
             this.food = 20;
             this.maxFood = 20;
-            this.saturation = 5.0;
-            this.oxygen = 20;
-            this.maxOxygen = 20;
+            this.oxygen = 15.0; // 15 seconds authentic breath duration
+            this.maxOxygen = 15.0;
+            this.headInWater = false;
+            this.feetInWater = false;
 
             this.fallDistance = 0;
             this.lastY = this.y;
@@ -179,18 +180,20 @@
 
             // Survival mechanics: Hunger & Oxygen
             if (this.gameMode === 'survival') {
-                // Oxygen in water
-                if (this.inWater) {
-                    this.oxygen = Math.max(0, this.oxygen - dt * 2.5);
+                // Oxygen in water: ONLY consume when head is actually submerged under water!
+                if (this.headInWater) {
+                    this.oxygen = Math.max(0, this.oxygen - dt * 1.0); // 15 seconds full breathing time
                     if (this.oxygen <= 0) {
                         this.drownTimer = (this.drownTimer || 0) + dt;
                         if (this.drownTimer > 1.2) {
-                            this.takeDamage(2, 'drown');
+                            this.takeDamage(1, 'drown');
                             this.drownTimer = 0;
                         }
                     }
                 } else {
-                    this.oxygen = Math.min(this.maxOxygen, this.oxygen + dt * 10);
+                    // Head above water: Instantly refill breath bubbles
+                    this.oxygen = Math.min(this.maxOxygen, this.oxygen + dt * 15.0);
+                    this.drownTimer = 0;
                 }
 
                 // Healing Torch effect (heal nearby)

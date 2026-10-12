@@ -40,6 +40,8 @@
             // Load existing save or generate fresh
             if (!this.saveManager.loadWorld()) {
                 this.world.updateChunksAround(this.player.x, this.player.z, 2);
+                const surfaceY = this.world.getHighestSolidY(Math.floor(this.player.x), Math.floor(this.player.z));
+                this.player.y = Math.max(surfaceY + 1.8, 25.0);
             }
 
             this.animate();
@@ -718,8 +720,18 @@
                 this.sunLight.intensity = 0.95;
             }
 
-            this.scene.background = skyColor;
-            this.scene.fog.color = skyColor;
+            // Underwater Atmospheric Effects
+            if (this.player.headInWater) {
+                const waterColor = new THREE.Color(0x15457a);
+                this.scene.background = waterColor;
+                this.scene.fog.color = waterColor;
+                this.scene.fog.density = 0.055;
+                this.ambientLight.intensity = 0.45;
+            } else {
+                this.scene.fog.density = 0.015;
+                this.scene.background = skyColor;
+                this.scene.fog.color = skyColor;
+            }
 
             // Highlight target block box
             const ray = this.player.raycast(5.0);
