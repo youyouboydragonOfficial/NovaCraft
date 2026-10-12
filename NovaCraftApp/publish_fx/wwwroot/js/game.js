@@ -25,6 +25,8 @@
             };
 
             this.lastTime = performance.now();
+            this.lastForwardPressTime = 0;
+            this.lastClickTime = 0;
             this.fpsFrames = 0;
             this.fpsTime = 0;
             this.currentFPS = 60;
@@ -260,6 +262,15 @@
                 }
                 this.input.keys[e.code] = true;
 
+                // Authentic Minecraft Double-Tap W or Up-Arrow to Sprint!
+                if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !e.repeat) {
+                    const now = performance.now();
+                    if (now - this.lastForwardPressTime < 320) {
+                        this.player.isSprinting = true;
+                    }
+                    this.lastForwardPressTime = now;
+                }
+
                 // Hotbar select with 1-9
                 if (e.key >= '1' && e.key <= '9') {
                     this.inventory.selectedHotbarIndex = parseInt(e.key) - 1;
@@ -301,6 +312,10 @@
 
             window.addEventListener('keyup', (e) => {
                 this.input.keys[e.code] = false;
+                // Stop sprinting when releasing forward movement key
+                if (e.code === 'KeyW' || e.code === 'ArrowUp') {
+                    this.player.isSprinting = false;
+                }
             });
 
             // Mouse wheel for hotbar
@@ -314,12 +329,19 @@
                 }
             });
 
-            // Mouse Click (Mining & Placing)
+            // Mouse Click (Mining, Placing & Double-click sprint toggle)
             window.addEventListener('mousedown', (e) => {
                 if (!this.isPointerLocked) return;
                 this.input.mouseButtons[e.button] = true;
 
                 if (e.button === 0) {
+                    // Double-click mouse to toggle sprint
+                    const now = performance.now();
+                    if (now - this.lastClickTime < 300) {
+                        this.player.isSprinting = !this.player.isSprinting;
+                    }
+                    this.lastClickTime = now;
+
                     // Left click: Attack mob or Mine
                     this.player.swingHand();
                     this.handleLeftClick();
@@ -338,6 +360,10 @@
         }
 
         requestPointerLock() {
+            if (this.sound) {
+                this.sound.init();
+                this.sound.startAmbientBGM();
+            }
             this.renderer.domElement.requestPointerLock();
         }
 
@@ -360,9 +386,13 @@
 
             // Creative instant break
             if (this.player.gameMode === 'creative' && ray) {
+                const bId = ray.blockId;
+                const def = window.BLOCK_BY_ID[bId];
                 this.world.setBlock(ray.x, ray.y, ray.z, window.BLOCKS.AIR.id);
-                this.sound.playBreak('stone');
-                this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0xaaaaaa, 6);
+                this.sound.playBreak(def?.sound || 'stone');
+                this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0xaaaaaa, 8);
+                // Safe Sand/Gravel gravity physics
+                this.world.applyGravityAbove(ray.x, ray.y, ray.z);
             }
         }
 
@@ -539,6 +569,8 @@
                                 this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, def.drop);
                             }
                             this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0x888888, 8);
+                            // Safe Sand/Gravel gravity physics
+                            this.world.applyGravityAbove(ray.x, ray.y, ray.z);
                         }
                         return;
                     }

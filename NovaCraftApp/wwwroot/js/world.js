@@ -150,6 +150,34 @@
             if (lz === CHUNK_SIZE_Z - 1) this.rebuildChunkMesh(this.getChunk(cx, cz + 1));
         }
 
+        // Safe and Authentic Minecraft Gravity Physics for Sand and Gravel (Crash-free)
+        applyGravityAbove(wx, startY, wz) {
+            const B = window.BLOCKS;
+            let checkY = startY + 1;
+            while (checkY < CHUNK_HEIGHT) {
+                const bId = this.getBlock(wx, checkY, wz);
+                if (bId === B.SAND.id || bId === B.GRAVEL.id) {
+                    let dropToY = checkY - 1;
+                    while (dropToY >= 1) {
+                        const belowId = this.getBlock(wx, dropToY, wz);
+                        if (belowId === B.AIR.id || belowId === B.WATER.id) {
+                            dropToY--;
+                        } else {
+                            break;
+                        }
+                    }
+                    const targetY = dropToY + 1;
+                    if (targetY < checkY) {
+                        this.setBlock(wx, checkY, wz, B.AIR.id);
+                        this.setBlock(wx, targetY, wz, bId);
+                    }
+                    checkY++;
+                } else {
+                    break;
+                }
+            }
+        }
+
         generateChunkTerrain(chunk) {
             if (chunk.generated) return;
             const B = window.BLOCKS;

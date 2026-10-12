@@ -67,6 +67,18 @@ public partial class Form1 : Form
             webView.CoreWebView2.Settings.AreDevToolsEnabled = true; // Useful for F12 debug
             webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
 
+            // Completely block microphone, camera, speech and location requests
+            webView.CoreWebView2.PermissionRequested += (sender, args) =>
+            {
+                if (args.PermissionKind == CoreWebView2PermissionKind.Microphone ||
+                    args.PermissionKind == CoreWebView2PermissionKind.Camera ||
+                    args.PermissionKind == CoreWebView2PermissionKind.Geolocation)
+                {
+                    args.State = CoreWebView2PermissionState.Deny;
+                    args.Handled = true;
+                }
+            };
+
             webView.Source = new Uri("https://novacraft.game/index.html");
         }
         catch (Exception ex)

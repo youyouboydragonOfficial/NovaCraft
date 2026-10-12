@@ -1,10 +1,12 @@
-// Procedural Web Audio Sound Engine and Ambient Music for NovaCraft
+// Procedural Web Audio Sound Engine, Realistic Mining/Break Audio, Independent SE/BGM Channels for NovaCraft
 (function(global) {
     class SoundEngine {
         constructor() {
             this.ctx = null;
-            this.muted = false;
-            this.masterVolume = 0.4;
+            this.seMuted = false;
+            this.bgmMuted = false;
+            this.seVolume = 0.5;
+            this.bgmVolume = 0.32;
             this.bgmPlaying = false;
             this.jetpackOsc = null;
         }
@@ -19,6 +21,19 @@
             }
         }
 
+        toggleSEMute() {
+            this.seMuted = !this.seMuted;
+            return this.seMuted;
+        }
+
+        toggleBGMMute() {
+            this.bgmMuted = !this.bgmMuted;
+            if (!this.bgmMuted && !this.bgmPlaying) {
+                this.startAmbientBGM();
+            }
+            return this.bgmMuted;
+        }
+
         createNoiseBuffer(duration = 0.2) {
             if (!this.ctx) return null;
             const bufferSize = Math.floor(this.ctx.sampleRate * duration);
@@ -31,7 +46,7 @@
         }
 
         playStep(material = 'grass') {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const filter = this.ctx.createBiquadFilter();
             const gain = this.ctx.createGain();
@@ -62,7 +77,7 @@
                     filter.frequency.setValueAtTime(700, now);
             }
 
-            gain.gain.setValueAtTime(0.12 * this.masterVolume, now);
+            gain.gain.setValueAtTime(0.12 * this.seVolume, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
             noiseNode.connect(filter);
@@ -71,36 +86,97 @@
             noiseNode.start(now);
         }
 
+        // Realistic Minecraft Tapping / Digging Impact Sound
         playDig(material = 'stone') {
-            if (this.muted || !this.ctx) return;
-            this.playStep(material);
-        }
-
-        playBreak(material = 'stone') {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
-            
-            // Low thud + crunchy noise
+
+            // 1. Tonal transient knock
             const osc = this.ctx.createOscillator();
             const oscGain = this.ctx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(180, now);
-            osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
-            oscGain.gain.setValueAtTime(0.3 * this.masterVolume, now);
-            oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            let fStart = 350;
+            let fEnd = 160;
+            let noiseFreq = 1200;
+            let dur = 0.08;
+
+            if (material === 'wood') {
+                osc.type = 'triangle';
+                fStart = 260;
+                fEnd = 130;
+                noiseFreq = 900;
+            } else if (material === 'stone') {
+                osc.type = 'square';
+                fStart = 680;
+                fEnd = 300;
+                noiseFreq = 2400;
+            } else if (material === 'grass' || material === 'dirt') {
+                osc.type = 'sine';
+                fStart = 180;
+                fEnd = 80;
+                noiseFreq = 650;
+            } else if (material === 'sand' || material === 'gravel') {
+                osc.type = 'sine';
+                fStart = 220;
+                fEnd = 110;
+                noiseFreq = 850;
+            } else {
+                osc.type = 'triangle';
+            }
+
+            osc.frequency.setValueAtTime(fStart, now);
+            osc.frequency.exponentialRampToValueAtTime(fEnd, now + dur);
+            oscGain.gain.setValueAtTime(0.25 * this.seVolume, now);
+            oscGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
             osc.connect(oscGain);
             oscGain.connect(this.ctx.destination);
             osc.start(now);
-            osc.stop(now + 0.15);
+            osc.stop(now + dur);
 
+            // 2. Texture noise
             const noise = this.ctx.createBufferSource();
-            noise.buffer = this.createNoiseBuffer(0.18);
+            noise.buffer = this.createNoiseBuffer(dur);
             const filter = this.ctx.createBiquadFilter();
             filter.type = 'bandpass';
-            filter.frequency.setValueAtTime(1000, now);
+            filter.frequency.setValueAtTime(noiseFreq, now);
+            const nGain = this.ctx.createGain();
+            nGain.gain.setValueAtTime(0.22 * this.seVolume, now);
+            nGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+            noise.connect(filter);
+            filter.connect(nGain);
+            nGain.connect(this.ctx.destination);
+            noise.start(now);
+        }
+
+        // Authentic Minecraft Shattering / Break Sound (Heavy crack + crumble)
+        playBreak(material = 'stone') {
+            if (this.seMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+
+            // Low thud impact
+            const osc = this.ctx.createOscillator();
+            const oscGain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(240, now);
+            osc.frequency.exponentialRampToValueAtTime(45, now + 0.22);
+            oscGain.gain.setValueAtTime(0.48 * this.seVolume, now);
+            oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+            osc.connect(oscGain);
+            oscGain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.22);
+
+            // Crunchy shattering noise
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = this.createNoiseBuffer(0.25);
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = (material === 'stone' || material === 'glass') ? 'highpass' : 'bandpass';
+            const fFreq = (material === 'stone') ? 1600 : (material === 'wood' ? 1100 : 750);
+            filter.frequency.setValueAtTime(fFreq, now);
+            filter.frequency.exponentialRampToValueAtTime(280, now + 0.25);
+
             const noiseGain = this.ctx.createGain();
-            noiseGain.gain.setValueAtTime(0.25 * this.masterVolume, now);
-            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+            noiseGain.gain.setValueAtTime(0.42 * this.seVolume, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
             noise.connect(filter);
             filter.connect(noiseGain);
             noiseGain.connect(this.ctx.destination);
@@ -108,14 +184,14 @@
         }
 
         playPlace() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(220, now);
-            osc.frequency.exponentialRampToValueAtTime(90, now + 0.1);
-            gain.gain.setValueAtTime(0.2 * this.masterVolume, now);
+            osc.frequency.setValueAtTime(240, now);
+            osc.frequency.exponentialRampToValueAtTime(95, now + 0.1);
+            gain.gain.setValueAtTime(0.22 * this.seVolume, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
             osc.connect(gain);
             gain.connect(this.ctx.destination);
@@ -124,14 +200,14 @@
         }
 
         playPop() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'sine';
             osc.frequency.setValueAtTime(440, now);
             osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
-            gain.gain.setValueAtTime(0.25 * this.masterVolume, now);
+            gain.gain.setValueAtTime(0.18 * this.seVolume, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
             osc.connect(gain);
             gain.connect(this.ctx.destination);
@@ -140,14 +216,14 @@
         }
 
         playHit() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(200, now);
-            osc.frequency.exponentialRampToValueAtTime(60, now + 0.12);
-            gain.gain.setValueAtTime(0.3 * this.masterVolume, now);
+            osc.frequency.setValueAtTime(320, now);
+            osc.frequency.exponentialRampToValueAtTime(90, now + 0.12);
+            gain.gain.setValueAtTime(0.25 * this.seVolume, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
             osc.connect(gain);
             gain.connect(this.ctx.destination);
@@ -156,14 +232,14 @@
         }
 
         playPlayerHurt() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(140, now);
-            osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
-            gain.gain.setValueAtTime(0.4 * this.masterVolume, now);
+            osc.frequency.exponentialRampToValueAtTime(65, now + 0.2);
+            gain.gain.setValueAtTime(0.35 * this.seVolume, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
             osc.connect(gain);
             gain.connect(this.ctx.destination);
@@ -172,7 +248,7 @@
         }
 
         playFuse() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const noise = this.ctx.createBufferSource();
             noise.buffer = this.createNoiseBuffer(1.4);
@@ -180,8 +256,8 @@
             filter.type = 'highpass';
             filter.frequency.setValueAtTime(3000, now);
             const gain = this.ctx.createGain();
-            gain.gain.setValueAtTime(0.15 * this.masterVolume, now);
-            gain.gain.linearRampToValueAtTime(0.35 * this.masterVolume, now + 1.2);
+            gain.gain.setValueAtTime(0.15 * this.seVolume, now);
+            gain.gain.linearRampToValueAtTime(0.35 * this.seVolume, now + 1.2);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
             noise.connect(filter);
             filter.connect(gain);
@@ -190,15 +266,14 @@
         }
 
         playExplosion() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
-            // Massive deep boom + crunchy lowpass noise
             const osc = this.ctx.createOscillator();
             const oscGain = this.ctx.createGain();
             osc.type = 'sine';
             osc.frequency.setValueAtTime(120, now);
             osc.frequency.exponentialRampToValueAtTime(25, now + 0.8);
-            oscGain.gain.setValueAtTime(0.6 * this.masterVolume, now);
+            oscGain.gain.setValueAtTime(0.6 * this.seVolume, now);
             oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
             osc.connect(oscGain);
             oscGain.connect(this.ctx.destination);
@@ -212,7 +287,7 @@
             filter.frequency.setValueAtTime(1200, now);
             filter.frequency.exponentialRampToValueAtTime(200, now + 0.9);
             const noiseGain = this.ctx.createGain();
-            noiseGain.gain.setValueAtTime(0.55 * this.masterVolume, now);
+            noiseGain.gain.setValueAtTime(0.55 * this.seVolume, now);
             noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
             noise.connect(filter);
             filter.connect(noiseGain);
@@ -220,16 +295,15 @@
             noise.start(now);
         }
 
-        // ★ Custom: Laser Drill
         playLaser() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(1400, now);
             osc.frequency.exponentialRampToValueAtTime(320, now + 0.2);
-            gain.gain.setValueAtTime(0.25 * this.masterVolume, now);
+            gain.gain.setValueAtTime(0.25 * this.seVolume, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
             osc.connect(gain);
             gain.connect(this.ctx.destination);
@@ -237,9 +311,8 @@
             osc.stop(now + 0.2);
         }
 
-        // ★ Custom: Astral Blade shockwave
         playAstralSlash() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
@@ -247,7 +320,7 @@
             osc.frequency.setValueAtTime(600, now);
             osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
             osc.frequency.exponentialRampToValueAtTime(200, now + 0.35);
-            gain.gain.setValueAtTime(0.3 * this.masterVolume, now);
+            gain.gain.setValueAtTime(0.3 * this.seVolume, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
             osc.connect(gain);
             gain.connect(this.ctx.destination);
@@ -255,16 +328,16 @@
             osc.stop(now + 0.35);
         }
 
-        // ★ Custom: Waygate Teleport
         playWarp() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(150, now);
-            osc.frequency.exponentialRampToValueAtTime(950, now + 0.4);
-            gain.gain.setValueAtTime(0.35 * this.masterVolume, now);
+            osc.frequency.setValueAtTime(220, now);
+            osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
+            osc.frequency.exponentialRampToValueAtTime(1760, now + 0.5);
+            gain.gain.setValueAtTime(0.25 * this.seVolume, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
             osc.connect(gain);
             gain.connect(this.ctx.destination);
@@ -272,17 +345,16 @@
             osc.stop(now + 0.5);
         }
 
-        // ★ Custom: Healing
         playHeal() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
-            const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, High C
+            const notes = [523.25, 659.25, 783.99, 1046.50];
             notes.forEach((freq, idx) => {
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-                gain.gain.setValueAtTime(0.12 * this.masterVolume, now + idx * 0.08);
+                gain.gain.setValueAtTime(0.12 * this.seVolume, now + idx * 0.08);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.25);
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
@@ -291,48 +363,15 @@
             });
         }
 
-        // Peaceful Procedural Piano-like Ambient BGM
-        startAmbientBGM() {
-            if (this.bgmPlaying || this.muted) return;
-            this.bgmPlaying = true;
-            this.scheduleNextBGMNote();
-        }
-
-        scheduleNextBGMNote() {
-            if (!this.bgmPlaying || this.muted || !this.ctx) return;
-            const now = this.ctx.currentTime;
-            const pentatonicScale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25]; // C D E G A C D E
-            const freq = pentatonicScale[Math.floor(Math.random() * pentatonicScale.length)];
-
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now);
-
-            // Soft warm attack & slow gentle decay
-            gain.gain.setValueAtTime(0.001, now);
-            gain.gain.linearRampToValueAtTime(0.08 * this.masterVolume, now + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
-
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start(now);
-            osc.stop(now + 2.5);
-
-            // Interval between notes (random 1.5s to 4.5s)
-            const delay = 1500 + Math.random() * 3000;
-            setTimeout(() => this.scheduleNextBGMNote(), delay);
-        }
-
         playBubble() {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'sine';
             osc.frequency.setValueAtTime(450 + Math.random() * 200, now);
             osc.frequency.exponentialRampToValueAtTime(1100 + Math.random() * 300, now + 0.12);
-            gain.gain.setValueAtTime(0.12 * this.masterVolume, now);
+            gain.gain.setValueAtTime(0.12 * this.seVolume, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
             osc.connect(gain);
             gain.connect(this.ctx.destination);
@@ -341,67 +380,93 @@
         }
 
         playMobSound(type) {
-            if (this.muted || !this.ctx) return;
+            if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
 
             if (type === 'pig') {
-                // Pig Oink
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(220, now);
                 osc.frequency.linearRampToValueAtTime(160, now + 0.18);
-                gain.gain.setValueAtTime(0.15 * this.masterVolume, now);
+                gain.gain.setValueAtTime(0.15 * this.seVolume, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
                 osc.start(now);
                 osc.stop(now + 0.18);
             } else if (type === 'cow') {
-                // Cow Moo
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(110, now);
                 osc.frequency.linearRampToValueAtTime(85, now + 0.55);
-                gain.gain.setValueAtTime(0.25 * this.masterVolume, now);
+                gain.gain.setValueAtTime(0.25 * this.seVolume, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
                 osc.start(now);
                 osc.stop(now + 0.55);
             } else if (type === 'sheep') {
-                // Sheep Baa
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(320, now);
                 osc.frequency.linearRampToValueAtTime(260, now + 0.4);
-                gain.gain.setValueAtTime(0.18 * this.masterVolume, now);
+                gain.gain.setValueAtTime(0.18 * this.seVolume, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
                 osc.start(now);
                 osc.stop(now + 0.4);
             } else if (type === 'chicken') {
-                // Chicken Cluck
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(600, now);
                 osc.frequency.exponentialRampToValueAtTime(380, now + 0.12);
-                gain.gain.setValueAtTime(0.15 * this.masterVolume, now);
+                gain.gain.setValueAtTime(0.15 * this.seVolume, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
                 osc.start(now);
                 osc.stop(now + 0.12);
             } else if (type === 'zombie') {
-                // Zombie Groan
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(80, now);
                 osc.frequency.linearRampToValueAtTime(60, now + 0.6);
-                gain.gain.setValueAtTime(0.2 * this.masterVolume, now);
+                gain.gain.setValueAtTime(0.2 * this.seVolume, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
                 osc.start(now);
                 osc.stop(now + 0.6);
             }
+        }
+
+        // Peaceful Procedural Piano-like Ambient BGM (Runs on independent BGM channel!)
+        startAmbientBGM() {
+            if (this.bgmPlaying || this.bgmMuted) return;
+            this.bgmPlaying = true;
+            this.scheduleNextBGMNote();
+        }
+
+        scheduleNextBGMNote() {
+            if (!this.bgmPlaying || this.bgmMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const pentatonicScale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25];
+            const freq = pentatonicScale[Math.floor(Math.random() * pentatonicScale.length)];
+
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.08 * this.bgmVolume, now + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 2.5);
+
+            const delay = 1600 + Math.random() * 3200;
+            setTimeout(() => this.scheduleNextBGMNote(), delay);
         }
     }
 

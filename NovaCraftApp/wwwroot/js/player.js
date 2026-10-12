@@ -117,32 +117,56 @@
                 if (Math.random() < 0.2) this.sound.playFuse();
             }
 
-            // Movement velocities
-            let speed = (input.keys['ControlLeft'] || input.keys['ControlRight'] || input.sprint) ? 7.5 : 4.5;
-            if (this.flying) speed *= 2.2;
+            // Movement keys (Both WASD and Arrow Keys supported!)
+            const isForward = !!(input.keys['KeyW'] || input.keys['ArrowUp']);
+            const isBackward = !!(input.keys['KeyS'] || input.keys['ArrowDown']);
+            const isRight = !!(input.keys['KeyD'] || input.keys['ArrowRight']);
+            const isLeft = !!(input.keys['KeyA'] || input.keys['ArrowLeft']);
+
+            // Sprinting condition: Double-tap W/Up, Ctrl key, or mouse double-click
+            const wantsSprint = !!(input.keys['ControlLeft'] || input.keys['ControlRight'] || input.sprint || this.isSprinting);
+            const isSprinting = wantsSprint && isForward && !this.inWater;
+
+            // Distinct walk vs sprint speeds (Authentic Minecraft feel!)
+            let baseSpeed = isSprinting ? 7.2 : 4.3;
+            let speed = baseSpeed;
+            if (this.flying) speed *= 2.0;
             if (this.speedBoostTimer > 0) {
                 speed *= 1.8;
                 this.speedBoostTimer -= dt;
+            }
+
+            // Dynamic Camera FOV (Widening FOV when sprinting, smooth lerp)
+            const targetFOV = isSprinting ? 86 : 75;
+            if (Math.abs(this.camera.fov - targetFOV) > 0.1) {
+                this.camera.fov += (targetFOV - this.camera.fov) * Math.min(1.0, dt * 10.0);
+                this.camera.updateProjectionMatrix();
+            }
+
+            // Hunger consumption when sprinting in survival
+            if (isSprinting && this.gameMode === 'survival') {
+                this.food = Math.max(0, this.food - dt * 0.15);
             }
 
             const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
             const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
             const moveDir = new THREE.Vector3();
 
-            if (input.keys['KeyW']) moveDir.add(forward);
-            if (input.keys['KeyS']) moveDir.sub(forward);
-            if (input.keys['KeyD']) moveDir.add(right);
-            if (input.keys['KeyA']) moveDir.sub(right);
+            if (isForward) moveDir.add(forward);
+            if (isBackward) moveDir.sub(forward);
+            if (isRight) moveDir.add(right);
+            if (isLeft) moveDir.sub(right);
 
             if (moveDir.lengthSq() > 0) {
                 moveDir.normalize();
                 this.velocity.x = moveDir.x * speed;
                 this.velocity.z = moveDir.z * speed;
 
-                // Step sounds
+                // Step sounds (Fast cadence when sprinting, relaxed when walking)
                 if (this.onGround && !this.flying) {
                     this.stepTimer = (this.stepTimer || 0) + dt;
-                    if (this.stepTimer > (speed > 5 ? 0.3 : 0.45)) {
+                    const stepInterval = isSprinting ? 0.28 : 0.44;
+                    if (this.stepTimer > stepInterval) {
                         this.stepTimer = 0;
                         const underBlock = this.world.getBlock(Math.floor(this.x), Math.floor(this.y - 0.5), Math.floor(this.z));
                         const def = window.BLOCK_BY_ID[underBlock];

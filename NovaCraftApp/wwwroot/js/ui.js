@@ -237,6 +237,11 @@
             if (this.game.mobManager) {
                 this.game.mobManager.spawnAnimalCluster(this.player.x, this.player.z, 10);
             }
+            // Start authentic ambient background music automatically from the beginning!
+            if (this.game.sound) {
+                this.game.sound.init();
+                this.game.sound.startAmbientBGM();
+            }
         }
 
         renderInventoryModal() {

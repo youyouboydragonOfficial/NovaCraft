@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NovaCraft - Ultimate Voxel Sandbox</title>
     <link rel="stylesheet" href="css/style.css">
+    <script>
+        // Completely disable microphone and speech APIs
+        if (navigator.mediaDevices) {
+            navigator.mediaDevices.getUserMedia = () => Promise.reject(new Error("Microphone disabled by user preference"));
+        }
+        window.SpeechRecognition = undefined;
+        window.webkitSpeechRecognition = undefined;
+    </script>
 </head>
 <body>
     <!-- 3D Render Canvas Container -->
@@ -122,6 +130,10 @@
             <button class="mc-button" onclick="window.game.ui.closeModal()">ゲームに戻る (Back to Game)</button>
             <button id="pause-mode-btn" class="mc-button" style="background: #335588;" onclick="window.game.player.gameMode = (window.game.player.gameMode === 'creative' ? 'survival' : 'creative'); this.textContent = 'ゲームモード切替 (現在: ' + (window.game.player.gameMode === 'creative' ? 'クリエイティブ' : 'サバイバル') + ')'; window.game.ui.renderHUD();">ゲームモード切替 (Survival / Creative)</button>
             <button class="mc-button" onclick="window.game.ui.openModal('creative')">クリエイティブカタログを開く</button>
+            <div style="display: flex; gap: 8px;">
+                <button id="pause-se-btn" class="mc-button" style="flex: 1;" onclick="const m = window.game.sound.toggleSEMute(); this.textContent = m ? '🔇 効果音: OFF' : '🔊 効果音: ON';">🔊 効果音: ON</button>
+                <button id="pause-bgm-btn" class="mc-button" style="flex: 1;" onclick="const m = window.game.sound.toggleBGMMute(); this.textContent = m ? '🔇 音楽: OFF' : '🎵 音楽: ON';">🎵 音楽: ON</button>
+            </div>
             <button class="mc-button" onclick="window.game.saveManager.saveWorld(); alert('ワールドをセーブしました！')">ワールド保存 (Save World)</button>
             <button class="mc-button" onclick="window.game.saveManager.exportJSON()">ワールドエクスポート (JSON保存)</button>
             <label class="mc-button" style="text-align: center; display: block;">
