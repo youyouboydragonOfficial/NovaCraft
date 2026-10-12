@@ -143,13 +143,17 @@ body, html {
     background: #6a3388;
 }
 
-.slot .item-name {
-    font-size: 9px;
-    text-align: center;
-    word-break: break-all;
-    line-height: 10px;
-    color: #ffffff;
-    text-shadow: 1px 1px 1px #000;
+.slot .item-icon {
+    width: 28px;
+    height: 28px;
+    image-rendering: pixelated;
+    pointer-events: none;
+}
+
+.item-icon-small {
+    width: 20px;
+    height: 20px;
+    image-rendering: pixelated;
     pointer-events: none;
 }
 
@@ -410,3 +414,38 @@ body, html {
     text-shadow: 2px 2px 0 #000;
     margin-bottom: 20px;
 }
+
+/* Title Screen Modal */
+#title-modal {
+    background: rgba(30, 30, 40, 0.95);
+    border: 3px solid #888888;
+    color: #ffffff;
+    text-align: center;
+    align-items: center;
+    width: 480px;
+    padding: 30px;
+}
+
+.title-logo {
+    font-size: 42px;
+    font-weight: bold;
+    color: #dddddd;
+    text-shadow: 4px 4px 0 #222222, 0 0 15px #bb44ff;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+}
+
+.title-subtitle {
+    font-size: 14px;
+    color: #ffdd44;
+    text-shadow: 1px 1px 0 #000;
+    margin-bottom: 24px;
+}
+
+.title-buttons {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+

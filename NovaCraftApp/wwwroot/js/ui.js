@@ -1,4 +1,4 @@
-// Minecraft-Style HUD, Inventory Modals, Crafting/Furnace UI, Chat & Pause Menu for NovaCraft
+// Authentic Minecraft HUD, Pixel-Art Icon Slots, Title Screen Mode Select & Crafting UI for NovaCraft
 (function(global) {
     class UIManager {
         constructor(game, inventory, player) {
@@ -17,6 +17,7 @@
             this.crosshair = document.getElementById('crosshair');
 
             this.modalOverlay = document.getElementById('modal-overlay');
+            this.titleModal = document.getElementById('title-modal');
             this.inventoryModal = document.getElementById('inventory-modal');
             this.craftingModal = document.getElementById('crafting-modal');
             this.furnaceModal = document.getElementById('furnace-modal');
@@ -31,6 +32,9 @@
 
             this.cursorElement = document.getElementById('cursor-item');
 
+            this.lastSelectedHotbarIndex = -1;
+            this.tooltipFadeTimer = null;
+
             this.initCreativeCatalog();
             this.setupEventHandlers();
         }
@@ -39,10 +43,14 @@
             // Mouse move for custom cursor item
             window.addEventListener('mousemove', (e) => {
                 if (this.inventory.cursorItem && this.cursorElement) {
-                    this.cursorElement.style.display = 'block';
-                    this.cursorElement.style.left = `${e.clientX + 10}px`;
-                    this.cursorElement.style.top = `${e.clientY + 10}px`;
-                    this.cursorElement.textContent = `${this.inventory.cursorItem.item} (${this.inventory.cursorItem.count})`;
+                    this.cursorElement.style.display = 'flex';
+                    this.cursorElement.style.left = `${e.clientX + 12}px`;
+                    this.cursorElement.style.top = `${e.clientY + 12}px`;
+                    const iconUrl = this.game.atlas?.getItemIconDataURL(this.inventory.cursorItem.item) || '';
+                    this.cursorElement.innerHTML = `
+                        <img src="${iconUrl}" class="item-icon-small" alt="">
+                        <span class="count">${this.inventory.cursorItem.count > 1 ? this.inventory.cursorItem.count : ''}</span>
+                    `;
                 } else if (this.cursorElement) {
                     this.cursorElement.style.display = 'none';
                 }
@@ -62,31 +70,53 @@
             });
         }
 
+        renderSlot(item, extraClass = '', isSelected = false, clickHandler = '') {
+            if (!item) {
+                return `<div class="slot ${isSelected ? 'selected' : ''} ${extraClass}" ${clickHandler ? `onclick="${clickHandler}"` : ''}></div>`;
+            }
+            const iconUrl = this.game.atlas?.getItemIconDataURL(item.item) || '';
+            return `
+                <div class="slot ${isSelected ? 'selected' : ''} ${extraClass}" ${clickHandler ? `onclick="${clickHandler}"` : ''}>
+                    <img src="${iconUrl}" class="item-icon" alt="">
+                    ${item.count > 1 ? `<div class="count">${item.count}</div>` : ''}
+                </div>
+            `;
+        }
+
         renderHUD() {
             // 1. Health Hearts (10 hearts = 20 HP)
-            let heartsHTML = '';
-            const hp = Math.ceil(this.player.health);
-            for (let i = 0; i < 10; i++) {
-                const heartVal = hp - i * 2;
-                if (heartVal >= 2) heartsHTML += '<span class="heart full">❤</span>';
-                else if (heartVal === 1) heartsHTML += '<span class="heart half">❤</span>';
-                else heartsHTML += '<span class="heart empty">♡</span>';
-            }
-            this.heartsContainer.innerHTML = heartsHTML;
+            if (this.player.gameMode === 'survival') {
+                this.heartsContainer.style.display = 'flex';
+                this.foodContainer.style.display = 'flex';
 
-            // 2. Food Icons (10 drumsticks = 20 Food)
-            let foodHTML = '';
-            const food = Math.ceil(this.player.food);
-            for (let i = 0; i < 10; i++) {
-                const fVal = food - i * 2;
-                if (fVal >= 2) foodHTML += '<span class="food full">🍗</span>';
-                else if (fVal === 1) foodHTML += '<span class="food half">🍗</span>';
-                else foodHTML += '<span class="food empty">🦴</span>';
+                let heartsHTML = '';
+                const hp = Math.ceil(this.player.health);
+                for (let i = 0; i < 10; i++) {
+                    const heartVal = hp - i * 2;
+                    if (heartVal >= 2) heartsHTML += '<span class="heart full">❤</span>';
+                    else if (heartVal === 1) heartsHTML += '<span class="heart half">❤</span>';
+                    else heartsHTML += '<span class="heart empty">♡</span>';
+                }
+                this.heartsContainer.innerHTML = heartsHTML;
+
+                // 2. Food Icons (10 drumsticks = 20 Food)
+                let foodHTML = '';
+                const food = Math.ceil(this.player.food);
+                for (let i = 0; i < 10; i++) {
+                    const fVal = food - i * 2;
+                    if (fVal >= 2) foodHTML += '<span class="food full">🍗</span>';
+                    else if (fVal === 1) foodHTML += '<span class="food half">🍗</span>';
+                    else foodHTML += '<span class="food empty">🦴</span>';
+                }
+                this.foodContainer.innerHTML = foodHTML;
+            } else {
+                // Creative Mode: hide hearts & food like real Minecraft
+                this.heartsContainer.style.display = 'none';
+                this.foodContainer.style.display = 'none';
             }
-            this.foodContainer.innerHTML = foodHTML;
 
             // 3. Oxygen bubbles (Only if in water)
-            if (this.player.inWater) {
+            if (this.player.inWater && this.player.gameMode === 'survival') {
                 this.oxygenContainer.style.display = 'flex';
                 let oxyHTML = '';
                 const oxy = Math.ceil(this.player.oxygen / 2);
@@ -98,38 +128,42 @@
                 this.oxygenContainer.style.display = 'none';
             }
 
-            // 4. Hotbar Slots
+            // 4. Hotbar Slots (Clean Pixel Art Icons Only - NO raw text!)
             let hotbarHTML = '';
             for (let i = 0; i < 9; i++) {
                 const item = this.inventory.slots[i];
                 const isSelected = (i === this.inventory.selectedHotbarIndex);
-                hotbarHTML += `
-                    <div class="slot ${isSelected ? 'selected' : ''}" data-slot="${i}">
-                        ${item ? `<div class="item-name">${item.item}</div><div class="count">${item.count > 1 ? item.count : ''}</div>` : ''}
-                    </div>
-                `;
+                hotbarHTML += this.renderSlot(item, '', isSelected, `window.game.inventory.selectedHotbarIndex = ${i}; window.game.ui.renderHUD();`);
             }
             this.hotbarContainer.innerHTML = hotbarHTML;
 
-            // 5. Tooltip for selected item
-            const curItem = this.inventory.getSelectedItem();
-            if (curItem) {
-                const def = window.ITEMS[curItem.item];
-                this.itemTooltip.style.opacity = '1';
-                this.itemTooltip.textContent = `${def?.nameJa || def?.name || curItem.item}`;
-            } else {
-                this.itemTooltip.style.opacity = '0';
+            // 5. Tooltip for selected item (Fade in on change, then fade out)
+            const curIdx = this.inventory.selectedHotbarIndex;
+            if (curIdx !== this.lastSelectedHotbarIndex) {
+                this.lastSelectedHotbarIndex = curIdx;
+                const curItem = this.inventory.getSelectedItem();
+                if (curItem) {
+                    const def = window.ITEMS[curItem.item];
+                    this.itemTooltip.textContent = `${def?.nameJa || def?.name || curItem.item}`;
+                    this.itemTooltip.style.opacity = '1';
+                    if (this.tooltipFadeTimer) clearTimeout(this.tooltipFadeTimer);
+                    this.tooltipFadeTimer = setTimeout(() => {
+                        this.itemTooltip.style.opacity = '0';
+                    }, 2200);
+                } else {
+                    this.itemTooltip.style.opacity = '0';
+                }
             }
 
             // 6. Debug Info (F3)
             if (this.game.showDebug) {
                 this.debugOverlay.style.display = 'block';
                 this.debugOverlay.innerHTML = `
-                    <b>NovaCraft v1.0.0</b> (${this.player.gameMode})<br>
+                    <b>NovaCraft Infinite v1.0.0</b> (${this.player.gameMode})<br>
                     XYZ: ${this.player.x.toFixed(2)} / ${this.player.y.toFixed(2)} / ${this.player.z.toFixed(2)}<br>
                     Chunk: ${Math.floor(this.player.x / 16)}, ${Math.floor(this.player.z / 16)}<br>
                     Yaw: ${(this.player.yaw * 180 / Math.PI).toFixed(1)}° | Pitch: ${(this.player.pitch * 180 / Math.PI).toFixed(1)}°<br>
-                    FPS: ${this.game.currentFPS || 60} | Entities: ${this.game.mobManager.mobs.length} | Items: ${this.game.itemManager.droppedItems.length}<br>
+                    FPS: ${this.game.currentFPS || 60} | Animals/Mobs: ${this.game.mobManager.mobs.length} | Items: ${this.game.itemManager.droppedItems.length}<br>
                     Time: ${(this.game.timeOfDay * 24).toFixed(1)}:00 | Teleporters: ${this.game.world.teleportWaygates.length}
                 `;
             } else {
@@ -140,7 +174,7 @@
             if (this.player.isDead) {
                 this.deathModal.style.display = 'flex';
                 this.modalOverlay.style.display = 'flex';
-            } else {
+            } else if (this.inventory.openMode === 'none') {
                 this.deathModal.style.display = 'none';
             }
         }
@@ -151,6 +185,7 @@
             document.exitPointerLock();
 
             // Hide all sub-modals first
+            if (this.titleModal) this.titleModal.style.display = 'none';
             this.inventoryModal.style.display = 'none';
             this.craftingModal.style.display = 'none';
             this.furnaceModal.style.display = 'none';
@@ -158,7 +193,9 @@
             this.creativeModal.style.display = 'none';
             this.pauseModal.style.display = 'none';
 
-            if (mode === 'inventory') {
+            if (mode === 'title') {
+                if (this.titleModal) this.titleModal.style.display = 'flex';
+            } else if (mode === 'inventory') {
                 this.inventoryModal.style.display = 'flex';
                 this.renderInventoryModal();
             } else if (mode === 'crafting') {
@@ -175,6 +212,11 @@
                 this.renderCreativeCatalog();
             } else if (mode === 'pause') {
                 this.pauseModal.style.display = 'flex';
+                // Update mode toggle button text
+                const toggleBtn = document.getElementById('pause-mode-btn');
+                if (toggleBtn) {
+                    toggleBtn.textContent = `ゲームモード切替 (現在: ${this.player.gameMode === 'creative' ? 'クリエイティブ' : 'サバイバル'})`;
+                }
             }
         }
 
@@ -184,50 +226,39 @@
             this.game.requestPointerLock();
         }
 
+        selectGameMode(mode) {
+            this.player.gameMode = mode;
+            if (mode === 'creative') {
+                this.player.flying = false;
+            }
+            this.closeModal();
+            this.addChatMessage(`★ ゲームモード「${mode === 'creative' ? 'クリエイティブ' : 'サバイバル'}」で開始しました！`, '#55ff55');
+        }
+
         renderInventoryModal() {
             // Render 2x2 Crafting Grid
             const craftGrid = document.getElementById('craft-2x2-grid');
             craftGrid.innerHTML = '';
             for (let i = 0; i < 4; i++) {
-                const item = this.inventory.craft2x2[i];
-                craftGrid.innerHTML += `
-                    <div class="slot" onclick="window.game.handleSlotClick('craft2x2', ${i})">
-                        ${item ? `<span class="item-name">${item.item}</span><span class="count">${item.count}</span>` : ''}
-                    </div>
-                `;
+                craftGrid.innerHTML += this.renderSlot(this.inventory.craft2x2[i], '', false, `window.game.handleSlotClick('craft2x2', ${i})`);
             }
 
             // Craft Result
             const craftRes = document.getElementById('craft-2x2-result');
-            const resItem = this.inventory.craftResult;
-            craftRes.innerHTML = resItem ? `
-                <div class="slot result" onclick="window.game.handleCraftResultClick(false)">
-                    <span class="item-name">${resItem.item}</span><span class="count">${resItem.count}</span>
-                </div>
-            ` : `<div class="slot result"></div>`;
+            craftRes.innerHTML = this.renderSlot(this.inventory.craftResult, 'result', false, `window.game.handleCraftResultClick(false)`);
 
             // Main Inventory Slots (9 to 35)
             const mainGrid = document.getElementById('inv-main-grid');
             mainGrid.innerHTML = '';
             for (let i = 9; i < 36; i++) {
-                const item = this.inventory.slots[i];
-                mainGrid.innerHTML += `
-                    <div class="slot" onclick="window.game.handleSlotClick('player', ${i})">
-                        ${item ? `<span class="item-name">${item.item}</span><span class="count">${item.count}</span>` : ''}
-                    </div>
-                `;
+                mainGrid.innerHTML += this.renderSlot(this.inventory.slots[i], '', false, `window.game.handleSlotClick('player', ${i})`);
             }
 
             // Hotbar Slots (0 to 8)
             const hotbarGrid = document.getElementById('inv-hotbar-grid');
             hotbarGrid.innerHTML = '';
             for (let i = 0; i < 9; i++) {
-                const item = this.inventory.slots[i];
-                hotbarGrid.innerHTML += `
-                    <div class="slot" onclick="window.game.handleSlotClick('player', ${i})">
-                        ${item ? `<span class="item-name">${item.item}</span><span class="count">${item.count}</span>` : ''}
-                    </div>
-                `;
+                hotbarGrid.innerHTML += this.renderSlot(this.inventory.slots[i], '', false, `window.game.handleSlotClick('player', ${i})`);
             }
         }
 
@@ -236,22 +267,12 @@
             const craftGrid = document.getElementById('craft-3x3-grid');
             craftGrid.innerHTML = '';
             for (let i = 0; i < 9; i++) {
-                const item = this.inventory.craft3x3[i];
-                craftGrid.innerHTML += `
-                    <div class="slot" onclick="window.game.handleSlotClick('craft3x3', ${i})">
-                        ${item ? `<span class="item-name">${item.item}</span><span class="count">${item.count}</span>` : ''}
-                    </div>
-                `;
+                craftGrid.innerHTML += this.renderSlot(this.inventory.craft3x3[i], '', false, `window.game.handleSlotClick('craft3x3', ${i})`);
             }
 
             // Craft Result
             const craftRes = document.getElementById('craft-3x3-result');
-            const resItem = this.inventory.craftResult;
-            craftRes.innerHTML = resItem ? `
-                <div class="slot result" onclick="window.game.handleCraftResultClick(true)">
-                    <span class="item-name">${resItem.item}</span><span class="count">${resItem.count}</span>
-                </div>
-            ` : `<div class="slot result"></div>`;
+            craftRes.innerHTML = this.renderSlot(this.inventory.craftResult, 'result', false, `window.game.handleCraftResultClick(true)`);
 
             // Render Player Slots Below
             this.renderPlayerSlotsForModal('crafting-player-slots');
@@ -265,9 +286,9 @@
             const flame = document.getElementById('furnace-flame');
             const arrow = document.getElementById('furnace-arrow');
 
-            inputSlot.innerHTML = f.input ? `<span class="item-name">${f.input.item}</span><span class="count">${f.input.count}</span>` : '';
-            fuelSlot.innerHTML = f.fuel ? `<span class="item-name">${f.fuel.item}</span><span class="count">${f.fuel.count}</span>` : '';
-            outputSlot.innerHTML = f.output ? `<span class="item-name">${f.output.item}</span><span class="count">${f.output.count}</span>` : '';
+            inputSlot.innerHTML = f.input ? `<img src="${this.game.atlas?.getItemIconDataURL(f.input.item)}" class="item-icon"><div class="count">${f.input.count > 1 ? f.input.count : ''}</div>` : '';
+            fuelSlot.innerHTML = f.fuel ? `<img src="${this.game.atlas?.getItemIconDataURL(f.fuel.item)}" class="item-icon"><div class="count">${f.fuel.count > 1 ? f.fuel.count : ''}</div>` : '';
+            outputSlot.innerHTML = f.output ? `<img src="${this.game.atlas?.getItemIconDataURL(f.output.item)}" class="item-icon"><div class="count">${f.output.count > 1 ? f.output.count : ''}</div>` : '';
 
             // Update burning flame animation & progress
             if (f.burnTime > 0) flame.classList.add('active');
@@ -283,12 +304,7 @@
             const chestGrid = document.getElementById('chest-grid');
             chestGrid.innerHTML = '';
             for (let i = 0; i < 27; i++) {
-                const item = this.inventory.chestSlots[i];
-                chestGrid.innerHTML += `
-                    <div class="slot" onclick="window.game.handleSlotClick('chest', ${i})">
-                        ${item ? `<span class="item-name">${item.item}</span><span class="count">${item.count}</span>` : ''}
-                    </div>
-                `;
+                chestGrid.innerHTML += this.renderSlot(this.inventory.chestSlots[i], '', false, `window.game.handleSlotClick('chest', ${i})`);
             }
             this.renderPlayerSlotsForModal('chest-player-slots');
         }
@@ -299,21 +315,11 @@
             container.innerHTML = '';
             // Main 27
             for (let i = 9; i < 36; i++) {
-                const item = this.inventory.slots[i];
-                container.innerHTML += `
-                    <div class="slot" onclick="window.game.handleSlotClick('player', ${i})">
-                        ${item ? `<span class="item-name">${item.item}</span><span class="count">${item.count}</span>` : ''}
-                    </div>
-                `;
+                container.innerHTML += this.renderSlot(this.inventory.slots[i], '', false, `window.game.handleSlotClick('player', ${i})`);
             }
             // Hotbar 9
             for (let i = 0; i < 9; i++) {
-                const item = this.inventory.slots[i];
-                container.innerHTML += `
-                    <div class="slot hotbar-slot" onclick="window.game.handleSlotClick('player', ${i})">
-                        ${item ? `<span class="item-name">${item.item}</span><span class="count">${item.count}</span>` : ''}
-                    </div>
-                `;
+                container.innerHTML += this.renderSlot(this.inventory.slots[i], 'hotbar-slot', false, `window.game.handleSlotClick('player', ${i})`);
             }
         }
 
@@ -326,9 +332,10 @@
             for (let k in items) {
                 const item = items[k];
                 const isCustom = (item.category === 'custom' || item.customAbility);
+                const iconUrl = this.game?.atlas?.getItemIconDataURL(k) || '';
                 catalogGrid.innerHTML += `
                     <div class="slot ${isCustom ? 'custom-item' : ''}" title="${item.nameJa || item.name} - ${item.desc || ''}" onclick="window.game.pickCreativeItem('${k}')">
-                        <span class="item-name">${k}</span>
+                        <img src="${iconUrl}" class="item-icon" alt="">
                         ${isCustom ? '<span class="badge">★</span>' : ''}
                     </div>
                 `;

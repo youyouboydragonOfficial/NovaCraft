@@ -1,4 +1,4 @@
-// AABB Physics Engine, Step Climbing & Collision Detection for NovaCraft
+// Authentic Minecraft AABB Physics Engine, Continuous Collision & Zero-Penetration
 (function(global) {
     class AABB {
         constructor(minX, minY, minZ, maxX, maxY, maxZ) {
@@ -8,14 +8,6 @@
             this.maxX = maxX;
             this.maxY = maxY;
             this.maxZ = maxZ;
-        }
-
-        intersects(other) {
-            return (
-                this.minX < other.maxX && this.maxX > other.minX &&
-                this.minY < other.maxY && this.maxY > other.minY &&
-                this.minZ < other.maxZ && this.maxZ > other.minZ
-            );
         }
 
         clone() {
@@ -28,35 +20,96 @@
                 this.maxX + dx, this.maxY + dy, this.maxZ + dz
             );
         }
+
+        // Expand in movement directions
+        expand(dx, dy, dz) {
+            let minX = this.minX;
+            let minY = this.minY;
+            let minZ = this.minZ;
+            let maxX = this.maxX;
+            let maxY = this.maxY;
+            let maxZ = this.maxZ;
+
+            if (dx < 0) minX += dx;
+            if (dx > 0) maxX += dx;
+            if (dy < 0) minY += dy;
+            if (dy > 0) maxY += dy;
+            if (dz < 0) minZ += dz;
+            if (dz > 0) maxZ += dz;
+
+            return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
+        }
+
+        // Authentic Minecraft Axis-Aligned Collision Clipping
+        clipXCollide(c, dx) {
+            if (this.maxY <= c.minY || this.minY >= c.maxY) return dx;
+            if (this.maxZ <= c.minZ || this.minZ >= c.maxZ) return dx;
+            if (dx > 0.0 && this.maxX <= c.minX) {
+                const max = c.minX - this.maxX;
+                if (max < dx) dx = max;
+            } else if (dx < 0.0 && this.minX >= c.maxX) {
+                const max = c.maxX - this.minX;
+                if (max > dx) dx = max;
+            }
+            return dx;
+        }
+
+        clipYCollide(c, dy) {
+            if (this.maxX <= c.minX || this.minX >= c.maxX) return dy;
+            if (this.maxZ <= c.minZ || this.minZ >= c.maxZ) return dy;
+            if (dy > 0.0 && this.maxY <= c.minY) {
+                const max = c.minY - this.maxY;
+                if (max < dy) dy = max;
+            } else if (dy < 0.0 && this.minY >= c.maxY) {
+                const max = c.maxY - this.minY;
+                if (max > dy) dy = max;
+            }
+            return dy;
+        }
+
+        clipZCollide(c, dz) {
+            if (this.maxX <= c.minX || this.minX >= c.maxX) return dz;
+            if (this.maxY <= c.minY || this.minY >= c.maxY) return dz;
+            if (dz > 0.0 && this.maxZ <= c.minZ) {
+                const max = c.minZ - this.maxZ;
+                if (max < dz) dz = max;
+            } else if (dz < 0.0 && this.minZ >= c.maxZ) {
+                const max = c.maxZ - this.minZ;
+                if (max > dz) dz = max;
+            }
+            return dz;
+        }
     }
 
     class Physics {
         constructor(world) {
             this.world = world;
-            this.gravity = 28.0; // blocks / s^2
-            this.terminalVelocity = 50.0;
+            this.gravity = 28.0;
+            this.terminalVelocity = 45.0;
         }
 
-        // Returns all solid block bounding boxes that could collide with target box
-        getBlockBoxes(box) {
+        // Gather all colliding solid block boxes in the broadphase sweep box
+        getSurroundingBoxes(box) {
             const boxes = [];
-            const minX = Math.floor(box.minX);
-            const maxX = Math.floor(box.maxX);
-            const minY = Math.floor(box.minY);
-            const maxY = Math.floor(box.maxY);
-            const minZ = Math.floor(box.minZ);
-            const maxZ = Math.floor(box.maxZ);
+            const minX = Math.floor(box.minX - 0.5);
+            const maxX = Math.ceil(box.maxX + 0.5);
+            const minY = Math.floor(box.minY - 0.5);
+            const maxY = Math.ceil(box.maxY + 0.5);
+            const minZ = Math.floor(box.minZ - 0.5);
+            const maxZ = Math.ceil(box.maxZ + 0.5);
+
+            const B = window.BLOCKS;
 
             for (let y = minY; y <= maxY; y++) {
                 for (let z = minZ; z <= maxZ; z++) {
                     for (let x = minX; x <= maxX; x++) {
-                        const blockId = this.world.getBlock(x, y, z);
-                        const blockDef = window.BLOCK_BY_ID[blockId];
-                        if (blockDef && blockDef.solid) {
+                        const bId = this.world.getBlock(x, y, z);
+                        const def = window.BLOCK_BY_ID[bId];
+                        if (def && def.solid) {
                             boxes.push({
                                 aabb: new AABB(x, y, z, x + 1, y + 1, z + 1),
-                                blockId: blockId,
-                                x: x, y: y, z: z
+                                blockId: bId,
+                                x, y, z
                             });
                         }
                     }
@@ -65,113 +118,131 @@
             return boxes;
         }
 
-        // Move entity with collision detection and smooth step-up
         moveEntity(entity, velocity, dt) {
             const B = window.BLOCKS;
-            let dx = velocity.x * dt;
-            let dy = velocity.y * dt;
-            let dz = velocity.z * dt;
 
-            // Check if inside water
-            const headBlock = this.world.getBlock(Math.floor(entity.x), Math.floor(entity.y + 1.5), Math.floor(entity.z));
-            const footBlock = this.world.getBlock(Math.floor(entity.x), Math.floor(entity.y), Math.floor(entity.z));
-            entity.inWater = (headBlock === B.WATER.id || footBlock === B.WATER.id);
-            entity.inLava = (headBlock === B.LAVA.id || footBlock === B.LAVA.id);
+            let origDx = velocity.x * dt;
+            let origDy = velocity.y * dt;
+            let origDz = velocity.z * dt;
 
-            // Water physics damping
+            // Liquid checks
+            const headB = this.world.getBlock(Math.floor(entity.x), Math.floor(entity.y + 1.5), Math.floor(entity.z));
+            const feetB = this.world.getBlock(Math.floor(entity.x), Math.floor(entity.y + 0.1), Math.floor(entity.z));
+            entity.inWater = (headB === B.WATER.id || feetB === B.WATER.id);
+            entity.inLava = (headB === B.LAVA.id || feetB === B.LAVA.id);
+
             if (entity.inWater && !entity.flying) {
-                dy = Math.max(dy, -4.0 * dt);
-                dx *= 0.7;
-                dz *= 0.7;
+                origDy = Math.max(origDy, -4.0 * dt);
+                origDx *= 0.65;
+                origDz *= 0.65;
             }
 
+            // Substepping for fast motion (prevent tunneling)
+            const maxStepDist = 0.35;
+            const moveLen = Math.sqrt(origDx * origDx + origDy * origDy + origDz * origDz);
+            const steps = Math.max(1, Math.ceil(moveLen / maxStepDist));
+
+            const subDx = origDx / steps;
+            const subDy = origDy / steps;
+            const subDz = origDz / steps;
+
+            for (let s = 0; s < steps; s++) {
+                this.moveSubstep(entity, velocity, subDx, subDy, subDz);
+            }
+        }
+
+        moveSubstep(entity, velocity, dx, dy, dz) {
+            const halfW = entity.width / 2;
+            const halfD = entity.depth / 2;
+            const h = entity.height;
+
             let box = new AABB(
-                entity.x - entity.width / 2,
-                entity.y,
-                entity.z - entity.depth / 2,
-                entity.x + entity.width / 2,
-                entity.y + entity.height,
-                entity.z + entity.depth / 2
+                entity.x - halfW, entity.y, entity.z - halfD,
+                entity.x + halfW, entity.y + h, entity.z + halfD
             );
 
-            // Y-axis movement (Vertical)
-            const yBox = box.offset(0, dy, 0);
-            const yColliders = this.getBlockBoxes(yBox);
-            entity.onGround = false;
+            // Broadphase sweep box
+            const sweepBox = box.expand(dx, dy, dz);
+            const colliders = this.getSurroundingBoxes(sweepBox);
 
-            for (let i = 0; i < yColliders.length; i++) {
-                const c = yColliders[i].aabb;
-                if (yBox.intersects(c)) {
-                    if (dy > 0) {
-                        dy = c.minY - box.maxY;
-                        velocity.y = 0;
-                    } else if (dy < 0) {
-                        dy = c.maxY - box.minY;
-                        velocity.y = 0;
-                        entity.onGround = true;
+            const initialDx = dx;
+            const initialDy = dy;
+            const initialDz = dz;
 
-                        // Check special floor blocks
-                        if (yColliders[i].blockId === B.SPEED_PAD.id) {
-                            entity.speedBoostTimer = 1.0;
-                        } else if (yColliders[i].blockId === B.JUMP_PAD.id) {
-                            velocity.y = 18.0;
-                            entity.onGround = false;
-                        }
-                    }
-                }
+            // 1. Clip Y (Vertical)
+            for (let i = 0; i < colliders.length; i++) {
+                dy = box.clipYCollide(colliders[i].aabb, dy);
             }
             box = box.offset(0, dy, 0);
 
-            // X-axis movement
-            let xBox = box.offset(dx, 0, 0);
-            let xColliders = this.getBlockBoxes(xBox);
-            let collidedX = false;
-            for (let i = 0; i < xColliders.length; i++) {
-                const c = xColliders[i].aabb;
-                if (xBox.intersects(c)) {
-                    collidedX = true;
-                    if (dx > 0) dx = c.minX - box.maxX;
-                    else if (dx < 0) dx = c.maxX - box.minX;
-                    velocity.x = 0;
-                }
+            // 2. Clip X (Horizontal)
+            for (let i = 0; i < colliders.length; i++) {
+                dx = box.clipXCollide(colliders[i].aabb, dx);
             }
             box = box.offset(dx, 0, 0);
 
-            // Z-axis movement
-            let zBox = box.offset(0, 0, dz);
-            let zColliders = this.getBlockBoxes(zBox);
-            let collidedZ = false;
-            for (let i = 0; i < zColliders.length; i++) {
-                const c = zColliders[i].aabb;
-                if (zBox.intersects(c)) {
-                    collidedZ = true;
-                    if (dz > 0) dz = c.maxZ - box.minZ;
-                    else if (dz < 0) dz = c.minZ - box.maxZ;
-                    velocity.z = 0;
-                }
+            // 3. Clip Z (Horizontal)
+            for (let i = 0; i < colliders.length; i++) {
+                dz = box.clipZCollide(colliders[i].aabb, dz);
             }
             box = box.offset(0, 0, dz);
 
-            // Step climbing (Automatic 1-block step up if walking against obstacle)
-            if ((collidedX || collidedZ) && entity.onGround && !entity.flying) {
-                const stepHeight = 1.05;
-                const testStepBox = new AABB(
-                    entity.x - entity.width / 2 + (velocity.x * dt),
-                    entity.y + stepHeight,
-                    entity.z - entity.depth / 2 + (velocity.z * dt),
-                    entity.x + entity.width / 2 + (velocity.x * dt),
-                    entity.y + entity.height + stepHeight,
-                    entity.z + entity.depth / 2 + (velocity.z * dt)
+            // Ground and ceiling collision response
+            entity.onGround = (initialDy < 0.0 && dy !== initialDy);
+            if (dy !== initialDy) {
+                velocity.y = 0.0;
+            }
+            if (dx !== initialDx) {
+                velocity.x = 0.0;
+            }
+            if (dz !== initialDz) {
+                velocity.z = 0.0;
+            }
+
+            // Step Climbing (Auto-step 0.6 block height when colliding with obstacle)
+            if (entity.onGround && (dx !== initialDx || dz !== initialDz) && !entity.flying) {
+                const stepHeight = 0.6;
+                let stepBox = new AABB(
+                    entity.x - halfW, entity.y + stepHeight, entity.z - halfD,
+                    entity.x + halfW, entity.y + h + stepHeight, entity.z + halfD
                 );
-                if (this.getBlockBoxes(testStepBox).length === 0) {
-                    entity.y += stepHeight * 0.4; // smoothly hop up step
+
+                let stepDx = initialDx;
+                let stepDz = initialDz;
+
+                for (let i = 0; i < colliders.length; i++) {
+                    stepDx = stepBox.clipXCollide(colliders[i].aabb, stepDx);
+                }
+                stepBox = stepBox.offset(stepDx, 0, 0);
+
+                for (let i = 0; i < colliders.length; i++) {
+                    stepDz = stepBox.clipZCollide(colliders[i].aabb, stepDz);
+                }
+
+                // If stepping up allowed us to move further, accept step
+                if (stepDx * stepDx + stepDz * stepDz > dx * dx + dz * dz) {
+                    dx = stepDx;
+                    dz = stepDz;
+                    dy += stepHeight;
                 }
             }
 
-            // Apply new positions
+            // Apply displacement
             entity.x += dx;
             entity.y += dy;
             entity.z += dz;
+
+            // Check floor triggers (Speed pad & Jump pad)
+            if (entity.onGround) {
+                const B = window.BLOCKS;
+                const underId = this.world.getBlock(Math.floor(entity.x), Math.floor(entity.y - 0.2), Math.floor(entity.z));
+                if (underId === B.SPEED_PAD.id) {
+                    entity.speedBoostTimer = 1.0;
+                } else if (underId === B.JUMP_PAD.id) {
+                    velocity.y = 18.0;
+                    entity.onGround = false;
+                }
+            }
         }
     }
 
