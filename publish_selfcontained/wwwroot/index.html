@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaCraft - Ultimate Voxel Sandbox</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        // Completely disable microphone and speech APIs
+        if (navigator.mediaDevices) {
+            navigator.mediaDevices.getUserMedia = () => Promise.reject(new Error("Microphone disabled by user preference"));
+        }
+        window.SpeechRecognition = undefined;
+        window.webkitSpeechRecognition = undefined;
+    </script>
+</head>
+<body>
+    <!-- 3D Render Canvas Container -->
+    <div id="game-container"></div>
+
+    <!-- Crosshair -->
+    <div id="crosshair"></div>
+
+    <!-- HUD Overlay -->
+    <div id="hud">
+        <div id="item-tooltip">NovaCraft</div>
+        <div id="oxygen-container"></div>
+        <div class="status-bars">
+            <div id="hearts"></div>
+            <div id="food-container"></div>
+        </div>
+        <div id="hotbar"></div>
+    </div>
+
+    <!-- Debug Info (F3) -->
+    <div id="debug-overlay"></div>
+
+    <!-- Chat & Command Box -->
+    <div id="chat-container">
+        <div id="chat-messages">
+            <div class="chat-line" style="color: #ffff55;">★ NovaCraft へようこそ！ [T]でチャット/コマンド, [E]でインベントリ, [F3]で情報表示</div>
+        </div>
+        <input type="text" id="chat-input" placeholder="コマンド (/gamemode, /time, /give...) またはメッセージを入力...">
+    </div>
+
+    <!-- Cursor Item (for drag-and-drop) -->
+    <div id="cursor-item"></div>
+
+    <!-- Modal Windows Overlay -->
+    <div id="modal-overlay" style="display: flex;">
+        <!-- 0. Title Screen & Mode Selection -->
+        <div id="title-modal" class="modal-window" style="display: flex;">
+            <div class="title-logo">NOVACRAFT</div>
+            <div class="title-subtitle">Infinite Voxel Sandbox Edition</div>
+            <div class="title-buttons">
+                <button class="mc-button" style="background: #337733; font-weight: bold; font-size: 16px;" onclick="window.game.ui.selectGameMode('survival')">⚔️ サバイバルモードで遊ぶ (Survival)</button>
+                <button class="mc-button" style="background: #335588; font-weight: bold; font-size: 16px;" onclick="window.game.ui.selectGameMode('creative')">🏗️ クリエイティブモードで遊ぶ (Creative)</button>
+                <button class="mc-button" onclick="alert('【操作方法】\nW, A, S, D: 移動\nSpace: ジャンプ (クリエイティブ時は2回押しで飛行)\n左クリック: 採掘 / 攻撃\n右クリック: ブロック設置 / 特殊能力(アストラル斬撃・レーザー掘削)\nE: インベントリ / T: チャット / F3: 座標デバッグ / Esc: ポーズ')">📖 操作方法・ヘルプ (Controls)</button>
+            </div>
+        </div>
+
+        <!-- 1. Player Survival Inventory (2x2 Crafting) -->
+        <div id="inventory-modal" class="modal-window">
+            <h2>クラフト (Crafting)</h2>
+            <div class="crafting-layout">
+                <div id="craft-2x2-grid" class="crafting-grid-2x2"></div>
+                <div class="crafting-arrow">➔</div>
+                <div id="craft-2x2-result"></div>
+            </div>
+            <h2>インベントリ (Inventory)</h2>
+            <div id="inv-main-grid" class="inventory-grid-9x3"></div>
+            <div id="inv-hotbar-grid" class="hotbar-grid-9x1"></div>
+            <button class="mc-button" onclick="window.game.ui.closeModal()">閉じる (Close)</button>
+        </div>
+
+        <!-- 2. Crafting Table (3x3 Crafting) -->
+        <div id="crafting-modal" class="modal-window">
+            <h2>作業台 (Crafting Table 3x3)</h2>
+            <div class="crafting-layout">
+                <div id="craft-3x3-grid" class="crafting-grid-3x3"></div>
+                <div class="crafting-arrow">➔</div>
+                <div id="craft-3x3-result"></div>
+            </div>
+            <h2>所持品</h2>
+            <div id="crafting-player-slots"></div>
+            <button class="mc-button" onclick="window.game.ui.closeModal()">閉じる (Close)</button>
+        </div>
+
+        <!-- 3. Furnace Modal -->
+        <div id="furnace-modal" class="modal-window">
+            <h2>かまど (Furnace)</h2>
+            <div class="furnace-layout">
+                <div class="furnace-core">
+                    <div class="furnace-v">
+                        <div id="furnace-input" class="slot" onclick="window.game.handleFurnaceClick('input')"></div>
+                        <div id="furnace-flame" class="furnace-flame">🔥</div>
+                        <div id="furnace-fuel" class="slot" onclick="window.game.handleFurnaceClick('fuel')"></div>
+                    </div>
+                    <div class="furnace-progress-bar">
+                        <div id="furnace-arrow"></div>
+                    </div>
+                    <div id="furnace-output" class="slot result" onclick="window.game.handleFurnaceClick('output')"></div>
+                </div>
+            </div>
+            <h2>所持品</h2>
+            <div id="furnace-player-slots"></div>
+            <button class="mc-button" onclick="window.game.ui.closeModal()">閉じる (Close)</button>
+        </div>
+
+        <!-- 4. Chest Modal -->
+        <div id="chest-modal" class="modal-window">
+            <h2>チェスト (Chest)</h2>
+            <div id="chest-grid" class="inventory-grid-9x3"></div>
+            <h2>所持品</h2>
+            <div id="chest-player-slots"></div>
+            <button class="mc-button" onclick="window.game.ui.closeModal()">閉じる (Close)</button>
+        </div>
+
+        <!-- 5. Creative Catalog Modal -->
+        <div id="creative-modal" class="modal-window">
+            <h2>クリエイティブ アイテムカタログ (全種類)</h2>
+            <p style="font-size: 11px; margin-bottom: 6px; color: #555;">クリックするとホットバーに64個追加されます (★マークはオリジナル要素)</p>
+            <div id="creative-catalog-grid" class="creative-catalog-grid"></div>
+            <button class="mc-button" onclick="window.game.ui.closeModal()">閉じる (Close)</button>
+        </div>
+
+            <!-- 6. Pause Menu -->
+        <div id="pause-modal" class="modal-window" style="width: 380px;">
+            <h2 style="text-align: center; font-size: 20px;">ゲーム一時停止 (Pause)</h2>
+            <button class="mc-button" onclick="window.game.ui.closeModal()">ゲームに戻る (Back to Game)</button>
+            <button id="pause-mode-btn" class="mc-button" style="background: #335588;" onclick="window.game.player.gameMode = (window.game.player.gameMode === 'creative' ? 'survival' : 'creative'); this.textContent = 'ゲームモード切替 (現在: ' + (window.game.player.gameMode === 'creative' ? 'クリエイティブ' : 'サバイバル') + ')'; window.game.ui.renderHUD();">ゲームモード切替 (Survival / Creative)</button>
+            <button class="mc-button" onclick="window.game.ui.openModal('creative')">クリエイティブカタログを開く</button>
+            <div style="display: flex; gap: 8px;">
+                <button id="pause-se-btn" class="mc-button" style="flex: 1;" onclick="const m = window.game.sound.toggleSEMute(); this.textContent = m ? '🔇 効果音: OFF' : '🔊 効果音: ON';">🔊 効果音: ON</button>
+                <button id="pause-bgm-btn" class="mc-button" style="flex: 1;" onclick="const m = window.game.sound.toggleBGMMute(); this.textContent = m ? '🔇 音楽: OFF' : '🎵 音楽: ON';">🎵 音楽: ON</button>
+            </div>
+            <button class="mc-button" onclick="window.game.saveManager.saveWorld(); alert('ワールドをセーブしました！')">ワールド保存 (Save World)</button>
+            <button class="mc-button" onclick="window.game.saveManager.exportJSON()">ワールドエクスポート (JSON保存)</button>
+            <label class="mc-button" style="text-align: center; display: block;">
+                ワールドインポート (JSON読込)
+                <input type="file" accept=".json" style="display: none;" onchange="window.game.saveManager.importJSON(this.files[0])">
+            </label>
+            <div style="font-size: 11px; color: #444; margin-top: 10px; line-height: 16px;">
+                <b>操作方法:</b><br>
+                ・WASD: 移動 / Space: ジャンプ(クリエイティブは2回押しで飛行)<br>
+                ・Ctrl: ダッシュ / Shift: しゃがみ(飛行中下降)<br>
+                ・左クリック: 攻撃 / 採掘(長押し)<br>
+                ・右クリック: 設置 / 食べる / 特殊能力(アストラル斬撃・レーザー掘削)<br>
+                ・E: インベントリ / T: チャット・コマンド / F3: 詳細情報 / F11: 全画面
+            </div>
+        </div>
+
+        <!-- 7. Death Screen -->
+        <div id="death-modal" class="modal-window" style="width: 400px;">
+            <h1>YOU DIED!</h1>
+            <p style="margin-bottom: 20px;">命が尽きてしまった...</p>
+            <button class="mc-button" onclick="window.game.respawnPlayer()">リスポーン (Respawn)</button>
+        </div>
+    </div>
+
+    <!-- Scripts (Cache Buster v1.1.0) -->
+    <script src="lib/three.min.js"></script>
+    <script src="js/simplex-noise.js?v=1.1.0"></script>
+    <script src="js/constants.js?v=1.1.0"></script>
+    <script src="js/textures.js?v=1.1.0"></script>
+    <script src="js/audio.js?v=1.1.0"></script>
+    <script src="js/world.js?v=1.1.0"></script>
+    <script src="js/physics.js?v=1.1.0"></script>
+    <script src="js/player.js?v=1.1.0"></script>
+    <script src="js/items.js?v=1.1.0"></script>
+    <script src="js/mobs.js?v=1.1.0"></script>
+    <script src="js/inventory.js?v=1.1.0"></script>
+    <script src="js/ui.js?v=1.1.0"></script>
+    <script src="js/save.js?v=1.1.0"></script>
+    <script src="js/game.js?v=1.1.0"></script>
+</body>
+</html>
