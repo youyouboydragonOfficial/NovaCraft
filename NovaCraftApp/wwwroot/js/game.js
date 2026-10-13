@@ -40,10 +40,12 @@
             setInterval(() => this.saveManager.saveWorld(), 30000);
 
             // Load existing save or generate fresh
-            if (!this.saveManager.loadWorld()) {
-                this.world.updateChunksAround(this.player.x, this.player.z, 2);
-                const surfaceY = this.world.getHighestSolidY(Math.floor(this.player.x), Math.floor(this.player.z));
-                this.player.y = Math.max(surfaceY + 1.8, 25.0);
+            const hasSave = this.saveManager.loadWorld();
+            this.world.updateChunksAround(this.player.x, this.player.z, 2);
+            const surfaceY = this.world.getHighestSolidY(Math.floor(this.player.x), Math.floor(this.player.z));
+            if (!hasSave || this.player.y < surfaceY - 1.0 || this.player.y < 3.0) {
+                this.player.y = surfaceY + 1.8;
+                this.player.velocity.set(0, 0, 0);
             }
 
             this.animate();
@@ -701,9 +703,12 @@
             this.player.health = 20;
             this.player.food = 20;
             this.player.x = 8.5;
-            this.player.y = 42.0;
             this.player.z = 8.5;
+            this.world.updateChunksAround(this.player.x, this.player.z, 2);
+            const surfaceY = this.world.getHighestSolidY(Math.floor(this.player.x), Math.floor(this.player.z));
+            this.player.y = surfaceY + 1.8;
             this.player.velocity.set(0, 0, 0);
+            this.player.fallDistance = 0;
             this.ui.closeModal();
             this.requestPointerLock();
         }

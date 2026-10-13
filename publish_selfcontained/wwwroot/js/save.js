@@ -24,7 +24,7 @@
                     version: '1.0.0',
                     timestamp: Date.now(),
                     player: {
-                        x: p.x, y: p.y, z: p.z,
+                        x: p.x, y: Math.max(p.y, 3.0), z: p.z,
                         yaw: p.yaw, pitch: p.pitch,
                         health: p.health, food: p.food,
                         gameMode: p.gameMode
@@ -65,6 +65,13 @@
                     p.health = data.player.health;
                     p.food = data.player.food;
                     p.gameMode = data.player.gameMode || 'survival';
+
+                    // Sanitize position to guarantee surface spawn
+                    const surfaceY = this.game.world.getHighestSolidY(Math.floor(p.x), Math.floor(p.z));
+                    if (p.y < 3.0 || isNaN(p.y) || p.y < surfaceY - 1.0) {
+                        p.y = surfaceY + 1.8;
+                        p.velocity.set(0, 0, 0);
+                    }
                 }
 
                 // Restore Inventory

@@ -202,6 +202,28 @@
             // Apply physics
             this.physics.moveEntity(this, this.velocity, dt);
 
+            // ★ Surface Safety Anchor: Absolute guarantee against falling into void or underground clipping
+            const surfaceY = this.world.getHighestSolidY(Math.floor(this.x), Math.floor(this.z));
+            if (this.y < 2.0 || isNaN(this.y)) {
+                // Falling into void (Y < 2): instantly salvage to surface
+                this.y = surfaceY + 1.8;
+                this.velocity.set(0, 0, 0);
+                this.fallDistance = 0;
+                this.onGround = true;
+            } else if (!this.flying && this.y < surfaceY - 1.2) {
+                // Check if accidentally clipped into underground solid terrain
+                const feetB = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 0.1), Math.floor(this.z));
+                const bodyB = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 0.9), Math.floor(this.z));
+                const defF = window.BLOCK_BY_ID[feetB];
+                const defB = window.BLOCK_BY_ID[bodyB];
+                if ((defF && defF.solid) || (defB && defB.solid)) {
+                    this.y = surfaceY + 1.8;
+                    this.velocity.set(0, 0, 0);
+                    this.fallDistance = 0;
+                    this.onGround = true;
+                }
+            }
+
             // Survival mechanics: Hunger & Oxygen
             if (this.gameMode === 'survival') {
                 // Oxygen in water: ONLY consume when head is actually submerged under water!

@@ -60,7 +60,7 @@
             if (dy > 0.0 && this.maxY <= c.minY) {
                 const max = c.minY - this.maxY;
                 if (max < dy) dy = max;
-            } else if (dy < 0.0 && this.minY >= c.maxY) {
+            } else if (dy < 0.0 && this.minY >= c.maxY - 0.25) {
                 const max = c.maxY - this.minY;
                 if (max > dy) dy = max;
             }
@@ -234,6 +234,21 @@
             entity.x += dx;
             entity.y += dy;
             entity.z += dz;
+
+            // Depenetration safeguard: prevent feet from penetrating solid blocks
+            if (!entity.flying) {
+                const feetY = entity.y + 0.08;
+                const feetBlockId = this.world.getBlock(Math.floor(entity.x), Math.floor(feetY), Math.floor(entity.z));
+                const def = window.BLOCK_BY_ID[feetBlockId];
+                if (def && def.solid) {
+                    const blockTopY = Math.floor(feetY) + 1.0;
+                    if (entity.y < blockTopY) {
+                        entity.y = blockTopY;
+                        velocity.y = 0;
+                        entity.onGround = true;
+                    }
+                }
+            }
 
             // Check floor triggers (Speed pad & Jump pad)
             if (entity.onGround) {
