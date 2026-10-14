@@ -222,16 +222,30 @@
 
         closeModal() {
             this.inventory.openMode = 'none';
-            this.modalOverlay.style.display = 'none';
-            this.game.requestPointerLock();
+            if (this.modalOverlay) this.modalOverlay.style.display = 'none';
+            if (this.titleModal) this.titleModal.style.display = 'none';
+            if (this.inventoryModal) this.inventoryModal.style.display = 'none';
+            if (this.craftingModal) this.craftingModal.style.display = 'none';
+            if (this.furnaceModal) this.furnaceModal.style.display = 'none';
+            if (this.chestModal) this.chestModal.style.display = 'none';
+            if (this.creativeModal) this.creativeModal.style.display = 'none';
+            if (this.pauseModal) this.pauseModal.style.display = 'none';
+            if (this.deathModal) this.deathModal.style.display = 'none';
+            try {
+                this.game.requestPointerLock();
+            } catch (err) {
+                console.warn("Pointer lock request handled:", err);
+            }
         }
 
         selectGameMode(mode) {
+            console.log("selectGameMode executing:", mode);
             this.player.gameMode = mode;
             if (mode === 'creative') {
                 this.player.flying = false;
             }
             this.closeModal();
+            this.renderHUD();
             this.addChatMessage(`★ ゲームモード「${mode === 'creative' ? 'クリエイティブ' : 'サバイバル'}」で開始しました！`, '#55ff55');
             // Guaranteed animal cluster around player upon starting game
             if (this.game.mobManager) {

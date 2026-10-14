@@ -217,6 +217,7 @@ body, html {
     align-items: center;
     justify-content: center;
     z-index: 50;
+    pointer-events: auto !important;
 }
 
 .modal-window {
@@ -229,6 +230,9 @@ body, html {
     display: none;
     flex-direction: column;
     color: #3f3f3f;
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 60;
 }
 
 .modal-window h2 {
@@ -340,10 +344,13 @@ body, html {
     color: #ffffff;
     font-size: 14px;
     padding: 10px 20px;
-    cursor: pointer;
+    cursor: pointer !important;
     text-shadow: 1px 1px 0 #000;
     margin: 6px 0;
     width: 100%;
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 70;
 }
 .mc-button:hover {
     background: #9f9f9f;

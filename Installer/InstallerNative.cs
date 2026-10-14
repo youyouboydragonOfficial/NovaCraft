@@ -128,7 +128,7 @@ namespace NovaCraftInstaller
                     Directory.CreateDirectory(installDir);
                 }
 
-                // Check if game files are locally available near installer
+                // 1. Check if game files are locally available in directory
                 string currentDir = AppDomain.CurrentDomain.BaseDirectory;
                 string localPublish = Path.Combine(currentDir, "publish_selfcontained");
                 if (!Directory.Exists(localPublish) || !File.Exists(Path.Combine(localPublish, "NovaCraft.exe")))
@@ -142,30 +142,72 @@ namespace NovaCraftInstaller
 
                 bool hasLocalGame = File.Exists(Path.Combine(localPublish, "NovaCraft.exe")) && Directory.Exists(Path.Combine(localPublish, "wwwroot"));
 
+                // 2. Check if package ZIP is locally available next to installer
+                string localZip = Path.Combine(currentDir, "NovaCraft-Windows-v1.0.0.zip");
+                if (!File.Exists(localZip))
+                {
+                    string[] zips = Directory.GetFiles(currentDir, "*.zip");
+                    if (zips.Length > 0) localZip = zips[0];
+                }
+
                 if (hasLocalGame && localPublish != installDir)
                 {
                     SetStatus("ローカルゲームファイルをコピー中...", 30);
                     CopyDirectory(localPublish, installDir);
                     SetStatus("コピー完了", 80);
                 }
+                else if (File.Exists(localZip))
+                {
+                    SetStatus("ローカルパッケージ ZIP から高速展開中 (通信不要)...", 30);
+                    ZipFile.ExtractToDirectory(localZip, installDir);
+                    SetStatus("展開完了", 80);
+                }
                 else if (!File.Exists(Path.Combine(installDir, "NovaCraft.exe")))
                 {
-                    // Need to download package from GitHub
-                    SetStatus("最新のゲームパッケージをダウンロード中 (数秒お待ちください)...", 20);
+                    // Need to download package from GitHub with User-Agent & Retry logic
+                    SetStatus("最新のゲームパッケージをダウンロード中...", 20);
                     string tempZip = Path.Combine(Path.GetTempPath(), "NovaCraft-Setup-Temp.zip");
 
-                    using (WebClient client = new WebClient())
+                    bool downloaded = false;
+                    string lastError = "";
+
+                    for (int attempt = 1; attempt <= 3; attempt++)
                     {
-                        ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | SecurityProtocolType.Tls;
-                        client.DownloadProgressChanged += (s, ev) =>
+                        try
                         {
-                            SetStatus(string.Format("ダウンロード中: {0}% ({1:0.0} MB / {2:0.0} MB)",
-                                ev.ProgressPercentage,
-                                ev.BytesReceived / (1024.0 * 1024.0),
-                                ev.TotalBytesToReceive / (1024.0 * 1024.0)),
-                                20 + (int)(ev.ProgressPercentage * 0.5));
-                        };
-                        client.DownloadFile(new Uri(releaseZipUrl), tempZip);
+                            if (File.Exists(tempZip)) File.Delete(tempZip);
+                            using (WebClient client = new WebClient())
+                            {
+                                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | SecurityProtocolType.Tls;
+                                client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                                client.DownloadProgressChanged += (s, ev) =>
+                                {
+                                    SetStatus(string.Format("ダウンロード中: {0}% ({1:0.0} MB / {2:0.0} MB)",
+                                        ev.ProgressPercentage,
+                                        ev.BytesReceived / (1024.0 * 1024.0),
+                                        ev.TotalBytesToReceive / (1024.0 * 1024.0)),
+                                        20 + (int)(ev.ProgressPercentage * 0.5));
+                                };
+                                client.DownloadFile(new Uri(releaseZipUrl), tempZip);
+                            }
+
+                            if (File.Exists(tempZip) && new FileInfo(tempZip).Length > 10000000)
+                            {
+                                downloaded = true;
+                                break;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            lastError = ex.Message;
+                            SetStatus(string.Format("ダウンロード再試行中 ({0}/3)...", attempt), 20);
+                            Thread.Sleep(1500);
+                        }
+                    }
+
+                    if (!downloaded)
+                    {
+                        throw new Exception("ゲームファイルのダウンロードに失敗しました: " + lastError + "\nブラウザから直接ダウンロードして遊ぶこともできます。");
                     }
 
                     SetStatus("ゲームファイルを展開中...", 75);

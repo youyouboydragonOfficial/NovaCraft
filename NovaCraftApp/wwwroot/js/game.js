@@ -841,10 +841,27 @@
         }
     }
 
-    // Launch game when DOM is ready
-    window.addEventListener('DOMContentLoaded', () => {
-        window.game = new Game();
-    });
+    function launchGame() {
+        if (!window.game) {
+            try {
+                window.game = new Game();
+                console.log("NovaCraft Game initialized successfully.");
+                if (window.pendingMode && window.game.ui) {
+                    console.log("Executing pending mode:", window.pendingMode);
+                    window.game.ui.selectGameMode(window.pendingMode);
+                    window.pendingMode = null;
+                }
+            } catch (err) {
+                console.error("Critical error during NovaCraft Game initialization:", err);
+            }
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', launchGame);
+    } else {
+        launchGame();
+    }
 
     global.Game = Game;
 })(window);

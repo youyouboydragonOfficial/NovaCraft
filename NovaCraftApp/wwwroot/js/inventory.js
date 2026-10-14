@@ -28,8 +28,8 @@
             // Cursor held item for UI drag/drop
             this.cursorItem = null;
 
-            // Current UI open mode: 'none', 'inventory', 'crafting', 'furnace', 'chest', 'creative'
-            this.openMode = 'none';
+            // Current UI open mode: 'none', 'title', 'inventory', 'crafting', 'furnace', 'chest', 'creative'
+            this.openMode = 'title';
 
             this.initDefaultItems();
         }

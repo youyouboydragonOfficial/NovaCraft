@@ -12,6 +12,32 @@
         }
         window.SpeechRecognition = undefined;
         window.webkitSpeechRecognition = undefined;
+
+        // Guaranteed launch trigger for mode buttons
+        window.launchMode = function(mode) {
+            console.log("launchMode triggered for mode:", mode);
+            if (window.game && window.game.ui) {
+                window.game.ui.selectGameMode(mode);
+            } else {
+                window.pendingMode = mode;
+                const btn = document.getElementById(mode === 'creative' ? 'btn-mode-creative' : 'btn-mode-survival');
+                if (btn) btn.textContent = '⏳ ワールド起動中...';
+                // Wait for game to be ready
+                const checkInterval = setInterval(() => {
+                    if (window.game && window.game.ui) {
+                        clearInterval(checkInterval);
+                        window.game.ui.selectGameMode(mode);
+                    }
+                }, 100);
+            }
+        };
+
+        window.showHelpDialog = function() {
+            const helpEl = document.getElementById('help-info-box');
+            if (helpEl) {
+                helpEl.style.display = (helpEl.style.display === 'none' || !helpEl.style.display) ? 'block' : 'none';
+            }
+        };
     </script>
 </head>
 <body>
@@ -53,9 +79,18 @@
             <div class="title-logo">NOVACRAFT</div>
             <div class="title-subtitle">Infinite Voxel Sandbox Edition</div>
             <div class="title-buttons">
-                <button class="mc-button" style="background: #337733; font-weight: bold; font-size: 16px;" onclick="window.game.ui.selectGameMode('survival')">⚔️ サバイバルモードで遊ぶ (Survival)</button>
-                <button class="mc-button" style="background: #335588; font-weight: bold; font-size: 16px;" onclick="window.game.ui.selectGameMode('creative')">🏗️ クリエイティブモードで遊ぶ (Creative)</button>
-                <button class="mc-button" onclick="alert('【操作方法】\nW, A, S, D: 移動\nSpace: ジャンプ (クリエイティブ時は2回押しで飛行)\n左クリック: 採掘 / 攻撃\n右クリック: ブロック設置 / 特殊能力(アストラル斬撃・レーザー掘削)\nE: インベントリ / T: チャット / F3: 座標デバッグ / Esc: ポーズ')">📖 操作方法・ヘルプ (Controls)</button>
+                <button id="btn-mode-survival" class="mc-button" style="background: #337733; font-weight: bold; font-size: 16px;" onclick="window.launchMode('survival')">⚔️ サバイバルモードで遊ぶ (Survival)</button>
+                <button id="btn-mode-creative" class="mc-button" style="background: #335588; font-weight: bold; font-size: 16px;" onclick="window.launchMode('creative')">🏗️ クリエイティブモードで遊ぶ (Creative)</button>
+                <button id="btn-mode-help" class="mc-button" onclick="window.showHelpDialog()">📖 操作方法・ヘルプ (Controls)</button>
+                <div id="help-info-box" style="display: none; background: rgba(0,0,0,0.8); color: #fff; padding: 12px; border-radius: 4px; font-size: 12px; text-align: left; line-height: 18px; margin-top: 8px;">
+                    <b>【操作方法】</b><br>
+                    ・W, A, S, D または ↑ ↓ ← →: 移動<br>
+                    ・Wまたは↑矢印のダブルタップ / マウスダブルクリック / Ctrl: ダッシュ<br>
+                    ・Space: ジャンプ (クリエイティブ時は2回押しで飛行)<br>
+                    ・左クリック: 採掘 (長押し) / 攻撃<br>
+                    ・右クリック: ブロック設置 / 食べる / 特殊能力(アストラル斬撃・レーザー掘削)<br>
+                    ・E: インベントリ / T: コマンド / F3: 座標デバッグ / Esc: ポーズメニュー
+                </div>
             </div>
         </div>
 
