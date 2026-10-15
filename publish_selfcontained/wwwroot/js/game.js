@@ -14,8 +14,8 @@
         constructor() {
             this.container = document.getElementById('game-container');
             this.showDebug = false;
-            this.timeOfDay = 0.25; // 0.0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight
-            this.daySpeed = 0.003; // ~5.5 minutes per day-night cycle
+            this.timeOfDay = 0.22; // 0.22 = bright morning (~8:30 AM), 0.25 = noon, 0.5 = sunset, 0.75 = midnight
+            this.daySpeed = 0.000833; // 20 minutes per full day-night cycle (Minecraft Vanilla authentic)
 
             this.input = {
                 keys: {},
@@ -140,9 +140,9 @@
         }
 
         initHandMesh() {
-            // First-person dynamic hand & 3D held item model attached to camera
+            // Authentic Minecraft first-person arm & held item model attached to camera
             this.handGroup = new THREE.Group();
-            this.handGroup.position.set(0.38, -0.38, -0.55);
+            this.handGroup.position.set(0.36, -0.32, -0.48);
             this.currentHandItemKey = null;
             this.heldItemMesh = null;
             this.updateHandMesh(null);
@@ -162,74 +162,114 @@
 
             const itemDef = itemKey ? window.ITEMS[itemKey] : null;
 
+            // Master Arm Rig (Steve's arm is ALWAYS rendered!)
+            const armRig = new THREE.Group();
+
+            // 1. Steve's Sleeve (Teal/Cyan)
+            const sleeveMat = new THREE.MeshLambertMaterial({ color: 0x009a9a });
+            const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.26, 0.13), sleeveMat);
+            sleeve.position.set(0, -0.13, 0);
+            armRig.add(sleeve);
+
+            // 2. Steve's Hand / Fist (Skin tone)
+            const skinMat = new THREE.MeshLambertMaterial({ color: 0xcc8855 });
+            const hand = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.12), skinMat);
+            hand.position.set(0, 0.08, 0);
+            armRig.add(hand);
+
+            // 3. Held Item attached to Hand
             if (itemDef?.blockId) {
                 // Miniature 3D Voxel Block in hand
-                const blockGeo = new THREE.BoxGeometry(0.28, 0.28, 0.28);
+                const blockGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22);
                 this.atlas.applyBlockUVs(blockGeo, itemDef.blockId);
                 const blockMat = new THREE.MeshLambertMaterial({
                     map: this.atlas.getTexture(),
                     transparent: true
                 });
                 const blockMesh = new THREE.Mesh(blockGeo, blockMat);
-                blockMesh.rotation.set(0.4, 0.6, 0.1);
-                this.heldItemMesh = blockMesh;
-                this.handGroup.add(blockMesh);
-            } else if (itemDef?.category === 'combat' || itemDef?.category === 'tools') {
-                // 3D Tool / Weapon Model (Handle + Blade/Head)
+                blockMesh.position.set(0, 0.22, -0.06);
+                blockMesh.rotation.set(0.3, 0.6, 0.1);
+                armRig.add(blockMesh);
+            } else if (itemDef?.category === 'combat' || itemKey?.includes('sword') || itemKey?.includes('blade')) {
+                // Authentic Minecraft 3D Sword (Handle, Crossguard, Blade)
+                const swordGroup = new THREE.Group();
+                const stickMat = new THREE.MeshLambertMaterial({ color: 0x5a3d28 });
+
+                // Pommel
+                const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.06), stickMat);
+                pommel.position.set(0, 0.02, 0);
+                swordGroup.add(pommel);
+
+                // Handle (grip)
+                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.18, 0.045), stickMat);
+                handle.position.set(0, 0.12, 0);
+                swordGroup.add(handle);
+
+                // Crossguard
+                const guardMat = new THREE.MeshLambertMaterial({ color: 0x3e2815 });
+                const guard = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.05, 0.06), guardMat);
+                guard.position.set(0, 0.22, 0);
+                swordGroup.add(guard);
+
+                // Blade
+                let bladeColor = 0x8a6035; // Wood default
+                if (itemKey?.includes('stone')) bladeColor = 0x7a7a7a;
+                else if (itemKey?.includes('iron')) bladeColor = 0xe0e0e0;
+                else if (itemKey?.includes('gold')) bladeColor = 0xffd700;
+                else if (itemKey?.includes('diamond')) bladeColor = 0x4dedf0;
+                else if (itemKey?.includes('astral')) bladeColor = 0xd044ff; // Glowing Astral
+
+                const bladeMat = new THREE.MeshLambertMaterial({ color: bladeColor });
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.60, 0.035), bladeMat);
+                blade.position.set(0, 0.53, 0);
+                swordGroup.add(blade);
+
+                // Angle sword naturally forward from hand
+                swordGroup.rotation.set(0.65, 0.1, -0.2);
+                swordGroup.position.set(0, 0.06, 0);
+                armRig.add(swordGroup);
+            } else if (itemDef?.category === 'tools') {
+                // Tools (Pickaxe, Axe, Shovel)
                 const toolGroup = new THREE.Group();
-                const stickMat = new THREE.MeshLambertMaterial({ color: 0x885522 });
-                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.45, 0.06), stickMat);
-                handle.position.y = -0.05;
+                const stickMat = new THREE.MeshLambertMaterial({ color: 0x6b4423 });
+                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.50, 0.05), stickMat);
+                handle.position.set(0, 0.25, 0);
                 toolGroup.add(handle);
 
-                // Blade / Head
-                let headColor = 0x999999;
-                if (itemKey.includes('diamond')) headColor = 0x55eeff;
-                else if (itemKey.includes('gold')) headColor = 0xffdd44;
-                else if (itemKey.includes('iron')) headColor = 0xdddddd;
-                else if (itemKey.includes('astral')) headColor = 0xee33ff; // Glowing Astral
-                else if (itemKey.includes('laser')) headColor = 0x44eeff;
+                let headColor = 0x888888;
+                if (itemKey?.includes('wood')) headColor = 0x8a6035;
+                else if (itemKey?.includes('iron')) headColor = 0xd8d8d8;
+                else if (itemKey?.includes('gold')) headColor = 0xffd700;
+                else if (itemKey?.includes('diamond') || itemKey?.includes('laser')) headColor = 0x44eeff;
 
                 const headMat = new THREE.MeshLambertMaterial({ color: headColor });
-                if (itemKey.includes('sword') || itemKey.includes('blade')) {
-                    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.04), headMat);
-                    blade.position.y = 0.35;
-                    toolGroup.add(blade);
-                } else if (itemKey.includes('pickaxe') || itemKey.includes('drill')) {
-                    const pickHead = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 0.08), headMat);
-                    pickHead.position.y = 0.22;
+                if (itemKey?.includes('pickaxe') || itemKey?.includes('drill')) {
+                    const pickHead = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.08, 0.06), headMat);
+                    pickHead.position.set(0, 0.48, 0);
                     toolGroup.add(pickHead);
-                } else if (itemKey.includes('axe')) {
-                    const axeHead = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.22, 0.08), headMat);
-                    axeHead.position.set(0.08, 0.2, 0);
+                } else if (itemKey?.includes('axe')) {
+                    const axeHead = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.06), headMat);
+                    axeHead.position.set(0.08, 0.44, 0);
                     toolGroup.add(axeHead);
                 } else {
-                    const shovelHead = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.25, 0.04), headMat);
-                    shovelHead.position.y = 0.24;
+                    const shovelHead = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.03), headMat);
+                    shovelHead.position.set(0, 0.46, 0);
                     toolGroup.add(shovelHead);
                 }
 
-                toolGroup.rotation.set(Math.PI / 4, 0, -Math.PI / 8);
-                this.heldItemMesh = toolGroup;
-                this.handGroup.add(toolGroup);
-            } else {
-                // Default: Steve Arm with Cyan Sleeve
-                const armGroup = new THREE.Group();
-                const sleeveMat = new THREE.MeshLambertMaterial({ color: 0x00a8a8 });
-                const skinMat = new THREE.MeshLambertMaterial({ color: 0xcc8855 });
-
-                const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.3, 0.18), sleeveMat);
-                sleeve.position.y = -0.15;
-                armGroup.add(sleeve);
-
-                const hand = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.32, 0.18), skinMat);
-                hand.position.y = 0.14;
-                armGroup.add(hand);
-
-                armGroup.rotation.set(Math.PI / 4, 0, -Math.PI / 12);
-                this.heldItemMesh = armGroup;
-                this.handGroup.add(armGroup);
+                toolGroup.rotation.set(0.65, 0.1, -0.2);
+                armRig.add(toolGroup);
+            } else if (itemDef) {
+                // Generic items (Torch, Food, etc.)
+                const itemIcon = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, 0.06), new THREE.MeshLambertMaterial({ color: 0xffaa44 }));
+                itemIcon.position.set(0, 0.20, 0);
+                armRig.add(itemIcon);
             }
+
+            // Arm resting tilt
+            armRig.rotation.set(0.35, -0.20, 0.15);
+            this.heldItemMesh = armRig;
+            this.handGroup.add(armRig);
         }
 
         setupInputs() {
@@ -392,6 +432,7 @@
                 const itemDef = window.ITEMS[heldItem?.item];
                 const damage = itemDef?.damage || 1;
                 hitMob.takeDamage(damage);
+                this.sound.playHit();
                 this.itemManager.spawnBlockParticles(hitMob.x, hitMob.y + 1, hitMob.z, 0xff2222, 6);
                 return;
             }
@@ -540,6 +581,9 @@
             }
 
             if (this.input.mouseButtons[0]) {
+                if (!this.player.isSwinging) {
+                    this.player.swingHand();
+                }
                 const ray = this.player.raycast(4.5);
                 if (ray) {
                     const bId = ray.blockId;
@@ -749,22 +793,28 @@
             }
 
             // Sky and Fog Colors
-            let skyColor = new THREE.Color(0x78a7ff); // day blue
+            let skyColor = new THREE.Color(0x6eb5ff); // day blue
             if (sy < 0) {
-                // Night
-                skyColor.setHex(0x080a1a);
-                this.ambientLight.intensity = 0.18;
-                this.sunLight.intensity = 0.15;
-            } else if (sy < 40) {
+                // Night (Clear Moonlit Night - terrain, trees and blocks remain clearly visible!)
+                skyColor.setHex(0x101830);
+                this.ambientLight.color.setHex(0x99aacc);
+                this.ambientLight.intensity = 0.42;
+                this.sunLight.color.setHex(0x6080b0);
+                this.sunLight.intensity = 0.35;
+            } else if (sy < 45) {
                 // Sunset / Sunrise
-                skyColor.setHex(0xe57734);
-                this.ambientLight.intensity = 0.45;
-                this.sunLight.intensity = 0.6;
+                skyColor.setHex(0xe88245);
+                this.ambientLight.color.setHex(0xffffff);
+                this.ambientLight.intensity = 0.52;
+                this.sunLight.color.setHex(0xffaa66);
+                this.sunLight.intensity = 0.75;
             } else {
-                // Day
-                skyColor.setHex(0x78a7ff);
-                this.ambientLight.intensity = 0.55;
-                this.sunLight.intensity = 0.95;
+                // Day (Bright, Sunny & Clear Morning Sun)
+                skyColor.setHex(0x6eb5ff);
+                this.ambientLight.color.setHex(0xffffff);
+                this.ambientLight.intensity = 0.68;
+                this.sunLight.color.setHex(0xfffae8);
+                this.sunLight.intensity = 1.15;
             }
 
             // Underwater Atmospheric Effects
@@ -775,7 +825,7 @@
                 this.scene.fog.density = 0.055;
                 this.ambientLight.intensity = 0.45;
             } else {
-                this.scene.fog.density = 0.015;
+                this.scene.fog.density = 0.012;
                 this.scene.background = skyColor;
                 this.scene.fog.color = skyColor;
             }
@@ -828,13 +878,33 @@
                     const bobX = Math.cos(this.walkBobTimer || 0) * 0.025;
                     const bobY = Math.abs(Math.sin(this.walkBobTimer || 0)) * 0.025;
 
-                    // Attack / Mining swing
-                    const swingProgress = this.player.isSwinging ? Math.sin(this.player.handSwing) : 0;
-                    const swingRotX = -swingProgress * 0.75;
-                    const swingRotY = swingProgress * 0.35;
+                    // Attack / Mining swing (Authentic Minecraft Downward Chop & Inward Slash)
+                    const isSwinging = this.player.isSwinging;
+                    const swingProgress = isSwinging ? (this.player.handSwing / Math.PI) : 0;
 
-                    this.handGroup.position.set(0.38 + bobX, -0.38 - bobY - (swingProgress * 0.08), -0.55);
-                    this.handGroup.rotation.set(swingRotX, swingRotY, -swingProgress * 0.2);
+                    // Minecraft authentic swing dynamics:
+                    // swingArc: smooth arc for translation and horizontal sweep
+                    // swingChop: snappy sqrt curve for fast, powerful downward strike
+                    const swingArc = Math.sin(swingProgress * Math.PI);
+                    const swingChop = Math.sin(Math.sqrt(swingProgress) * Math.PI);
+
+                    const basePosX = 0.36;
+                    const basePosY = -0.32;
+                    const basePosZ = -0.48;
+
+                    // Positive rotX = chops downward towards crosshair
+                    const swingRotX = swingChop * 0.95;
+                    // Negative rotY = sweeps inward across screen from right
+                    const swingRotY = -swingArc * 0.65;
+                    // Blade roll
+                    const swingRotZ = swingArc * 0.35;
+
+                    this.handGroup.position.set(
+                        basePosX + bobX - (swingArc * 0.14),
+                        basePosY - bobY - (swingChop * 0.12),
+                        basePosZ + (swingChop * 0.08) - (swingArc * 0.14)
+                    );
+                    this.handGroup.rotation.set(swingRotX, swingRotY, swingRotZ);
 
                     // Infinite World chunk streaming & auto unloading
                     this.world.updateChunksAround(this.player.x, this.player.z, 3, 5);

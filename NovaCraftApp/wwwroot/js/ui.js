@@ -247,6 +247,14 @@
             if (mode === 'creative') {
                 this.player.flying = false;
             }
+
+            // Always start game in bright, clear morning daylight (~8:30 AM)!
+            this.game.timeOfDay = 0.22;
+
+            // Clear starter inventory for clean vanilla survival start
+            this.inventory.slots = new Array(36).fill(null);
+            this.inventory.selectedHotbarIndex = 0;
+
             this.closeModal();
             this.renderHUD();
             this.addChatMessage(`★ ゲームモード「${mode === 'creative' ? 'クリエイティブ' : 'サバイバル'}」で開始しました！`, '#55ff55');
@@ -258,6 +266,10 @@
             if (this.game.sound) {
                 this.game.sound.init();
                 this.game.sound.startAmbientBGM();
+            }
+            // Commit fresh clean world state
+            if (this.game.saveManager) {
+                this.game.saveManager.saveWorld();
             }
         }
 

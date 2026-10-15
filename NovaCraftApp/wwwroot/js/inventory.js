@@ -35,17 +35,9 @@
         }
 
         initDefaultItems() {
-            // Give player some starter items in hotbar
-            this.slots[0] = { item: 'wooden_pickaxe', count: 1, durability: 60 };
-            this.slots[1] = { item: 'wooden_sword', count: 1, durability: 60 };
-            this.slots[2] = { item: 'oak_log', count: 16 };
-            this.slots[3] = { item: 'torch', count: 12 };
-            this.slots[4] = { item: 'apple', count: 5 };
-            // Original starter trial
-            this.slots[5] = { item: 'astral_blade', count: 1 };
-            this.slots[6] = { item: 'laser_drill', count: 1 };
-            this.slots[7] = { item: 'gravity_boots', count: 1 };
-            this.slots[8] = { item: 'cluster_tnt', count: 8 };
+            // Authentic Vanilla Minecraft Survival starts with an empty inventory!
+            // Player begins with bare hands and gathers resources by punching trees.
+            this.slots = new Array(36).fill(null);
         }
 
         getSelectedItem() {
