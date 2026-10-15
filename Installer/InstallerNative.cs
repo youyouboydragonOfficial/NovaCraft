@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Net;
 using System.Diagnostics;
 using System.Windows.Forms;
@@ -23,17 +22,37 @@ namespace NovaCraftInstaller
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+
+            // Trap all unhandled exceptions to prevent raw crash dialogs
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            Application.ThreadException += (s, e) => HandleFatalError(e.Exception);
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => HandleFatalError(e.ExceptionObject as Exception);
+
             Application.Run(new InstallerForm());
+        }
+
+        private static void HandleFatalError(Exception ex)
+        {
+            string msg = ex != null ? ex.Message : "不明なエラーが発生しました。";
+            MessageBox.Show(
+                "セットアップ中に以下の問題が発生しました:\n" + msg + "\n\n" +
+                "【一番簡単な解決方法】\n" +
+                "GitHub から 'NovaCraft-Windows-v1.0.0.zip' を直接ダウンロードして解凍し、\n" +
+                "中にある 'NovaCraft.exe' を直接起動してください（インストール不要で遊べます）。",
+                "NovaCraft セットアップ案内",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            );
         }
 
         public InstallerForm()
         {
             this.Text = "NovaCraft セットアップ (Ultimate Voxel Sandbox)";
-            this.Size = new Size(520, 260);
+            this.Size = new Size(540, 280);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = Color.FromArgb(240, 240, 245);
+            this.BackColor = Color.FromArgb(242, 242, 246);
 
             installDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -44,7 +63,7 @@ namespace NovaCraftInstaller
             Label titleLabel = new Label
             {
                 Text = "NovaCraft インストーラー",
-                Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                Font = new Font("Segoe UI", 15, FontStyle.Bold),
                 Location = new Point(25, 20),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(30, 30, 50)
@@ -53,20 +72,20 @@ namespace NovaCraftInstaller
 
             Label descLabel = new Label
             {
-                Text = "ホーム画面 (デスクトップ) に NovaCraft を追加・セットアップします。\n境界制限なしの無限世界、リアルなサバイバル＆クリエイティブを楽しめます。",
+                Text = "ホーム画面 (デスクトップ) に NovaCraft をセットアップします。\n境界制限なしの無限世界、リアルなサバイバル＆クリエイティブを楽しめます。",
                 Font = new Font("Segoe UI", 9.5f),
                 Location = new Point(25, 55),
-                Size = new Size(460, 40),
+                Size = new Size(480, 40),
                 ForeColor = Color.FromArgb(70, 70, 80)
             };
             this.Controls.Add(descLabel);
 
             statusLabel = new Label
             {
-                Text = "準備完了。「インストール」をクリックしてください。",
+                Text = "準備完了。「インストール開始」をクリックしてください。",
                 Font = new Font("Segoe UI", 9),
                 Location = new Point(25, 110),
-                Size = new Size(460, 22),
+                Size = new Size(480, 22),
                 ForeColor = Color.FromArgb(80, 80, 90)
             };
             this.Controls.Add(statusLabel);
@@ -74,7 +93,7 @@ namespace NovaCraftInstaller
             progressBar = new ProgressBar
             {
                 Location = new Point(25, 135),
-                Size = new Size(455, 22),
+                Size = new Size(475, 24),
                 Minimum = 0,
                 Maximum = 100,
                 Value = 0
@@ -84,12 +103,13 @@ namespace NovaCraftInstaller
             startButton = new Button
             {
                 Text = "インストール開始",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                Location = new Point(340, 172),
-                Size = new Size(140, 35),
+                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+                Location = new Point(340, 180),
+                Size = new Size(160, 40),
                 BackColor = Color.FromArgb(46, 125, 50),
                 ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
             };
             startButton.FlatAppearance.BorderSize = 0;
             startButton.Click += StartButton_Click;
@@ -159,7 +179,7 @@ namespace NovaCraftInstaller
                 else if (File.Exists(localZip))
                 {
                     SetStatus("ローカルパッケージ ZIP から高速展開中 (通信不要)...", 30);
-                    ZipFile.ExtractToDirectory(localZip, installDir);
+                    ExtractZipZeroDependency(localZip, installDir);
                     SetStatus("展開完了", 80);
                 }
                 else if (!File.Exists(Path.Combine(installDir, "NovaCraft.exe")))
@@ -178,7 +198,7 @@ namespace NovaCraftInstaller
                             if (File.Exists(tempZip)) File.Delete(tempZip);
                             using (WebClient client = new WebClient())
                             {
-                                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | SecurityProtocolType.Tls;
+                                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)12288 | SecurityProtocolType.Tls;
                                 client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
                                 client.DownloadProgressChanged += (s, ev) =>
                                 {
@@ -207,11 +227,11 @@ namespace NovaCraftInstaller
 
                     if (!downloaded)
                     {
-                        throw new Exception("ゲームファイルのダウンロードに失敗しました: " + lastError + "\nブラウザから直接ダウンロードして遊ぶこともできます。");
+                        throw new Exception("ゲームファイルのダウンロードに失敗しました: " + lastError + "\n\nブラウザから 'NovaCraft-Windows-v1.0.0.zip' を直接ダウンロードして解凍することをお勧めします。");
                     }
 
                     SetStatus("ゲームファイルを展開中...", 75);
-                    ZipFile.ExtractToDirectory(tempZip, installDir);
+                    ExtractZipZeroDependency(tempZip, installDir);
                     try { File.Delete(tempZip); } catch { }
                 }
 
@@ -274,18 +294,79 @@ namespace NovaCraftInstaller
             }
             catch (Exception ex)
             {
-                SetStatus("エラー: " + ex.Message, 0);
+                SetStatus("案内: " + ex.Message, 0);
                 this.BeginInvoke(new Action(() =>
                 {
-                    MessageBox.Show(
-                        "インストール中にエラーが発生しました:\n" + ex.Message + "\n\n" +
-                        "同梱されている 'Install-To-Desktop.bat' または 'Play-NovaCraft.bat' を直接実行して起動することも可能です。",
-                        "エラー",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error
+                    DialogResult askOpen = MessageBox.Show(
+                        ex.Message + "\n\nブラウザで直接ダウンロードページを開きますか？\n（ZIPを解凍するだけでインストール不要で遊べます）",
+                        "NovaCraft セットアップ",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Information
                     );
+
+                    if (askOpen == DialogResult.Yes)
+                    {
+                        try
+                        {
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = "https://github.com/youyouboydragonOfficial/NovaCraft/releases/tag/v1.0.0",
+                                UseShellExecute = true
+                            });
+                        }
+                        catch { }
+                    }
                     startButton.Enabled = true;
                 }));
+            }
+        }
+
+        // 100% Zero-Dependency ZIP Extraction using Windows Shell COM (No System.IO.Compression.FileSystem.dll required!)
+        private void ExtractZipZeroDependency(string zipPath, string extractPath)
+        {
+            if (!Directory.Exists(extractPath))
+            {
+                Directory.CreateDirectory(extractPath);
+            }
+
+            try
+            {
+                Type shellAppType = Type.GetTypeFromProgID("Shell.Application");
+                if (shellAppType != null)
+                {
+                    dynamic shell = Activator.CreateInstance(shellAppType);
+                    dynamic zipFolder = shell.NameSpace(Path.GetFullPath(zipPath));
+                    dynamic destFolder = shell.NameSpace(Path.GetFullPath(extractPath));
+
+                    if (zipFolder != null && destFolder != null)
+                    {
+                        // 4 = Do not display a progress dialog box, 16 = Respond with "Yes to All" for any dialog box
+                        destFolder.CopyHere(zipFolder.Items(), 4 | 16 | 512 | 1024);
+                        return;
+                    }
+                }
+            }
+            catch { }
+
+            // Fallback: PowerShell Expand-Archive (built into every Windows 10 & 11)
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = string.Format("-NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '{0}' -DestinationPath '{1}' -Force\"", zipPath, extractPath),
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                using (Process p = Process.Start(psi))
+                {
+                    p.WaitForExit();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("ZIPファイルの展開に失敗しました: " + ex.Message);
             }
         }
 
