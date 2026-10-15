@@ -30,6 +30,8 @@
             this.fpsFrames = 0;
             this.fpsTime = 0;
             this.currentFPS = 60;
+            this.gameStarted = false;
+            this.pointerLockAcquired = false;
 
             this.initThree();
             this.initComponents();
@@ -243,7 +245,11 @@
 
             document.addEventListener('pointerlockchange', () => {
                 this.isPointerLocked = (document.pointerLockElement === dom);
-                if (!this.isPointerLocked && this.inventory.openMode === 'none' && !this.player.isDead) {
+                if (this.isPointerLocked) {
+                    this.pointerLockAcquired = true;
+                } else if (this.gameStarted && this.pointerLockAcquired && this.inventory.openMode === 'none' && !this.player.isDead) {
+                    // Only open pause modal if user was actively playing and pointer was truly locked
+                    this.pointerLockAcquired = false;
                     this.ui.openModal('pause');
                 }
             });
@@ -304,10 +310,14 @@
                     this.showDebug = !this.showDebug;
                 }
 
-                // Escape
+                // Escape key toggle pause menu
                 if (e.code === 'Escape') {
                     if (this.inventory.openMode !== 'none') {
-                        this.ui.closeModal();
+                        if (this.gameStarted) {
+                            this.ui.closeModal();
+                        }
+                    } else if (this.gameStarted && !this.player.isDead) {
+                        this.ui.openModal('pause');
                     }
                 }
             });

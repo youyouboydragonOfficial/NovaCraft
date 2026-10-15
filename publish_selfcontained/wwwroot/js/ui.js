@@ -239,6 +239,8 @@
         }
 
         selectGameMode(mode) {
+            if (this.game.gameStarted) return;
+            this.game.gameStarted = true;
             console.log("selectGameMode executing:", mode);
             this.player.gameMode = mode;
             if (mode === 'creative') {
