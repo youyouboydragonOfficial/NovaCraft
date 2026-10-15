@@ -239,7 +239,8 @@
         }
 
         selectGameMode(mode) {
-            if (this.game.gameStarted) return;
+            if (this.hasSelectedMode) return;
+            this.hasSelectedMode = true;
             this.game.gameStarted = true;
             console.log("selectGameMode executing:", mode);
             this.player.gameMode = mode;

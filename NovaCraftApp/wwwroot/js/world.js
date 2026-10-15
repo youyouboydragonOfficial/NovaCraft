@@ -341,7 +341,9 @@
                         const isWater = (blockId === B.WATER.id);
 
                         if (def.crossModel) {
-                            const uv = this.atlas.getUVs(def.texture);
+                            const uvMap = this.atlas.getBlockUVs(blockId);
+                            const texName = (typeof uvMap === 'string') ? uvMap : (uvMap?.all || 'flower_red');
+                            const uv = this.atlas.getUVs(texName);
                             this.addCrossFace(positions, normals, uvs, colors, wx, y, wz, uv);
                             continue;
                         }
@@ -366,14 +368,17 @@
 
                             if (!shouldRender) continue;
 
-                            const uvMapping = def.texture;
+                            const uvMapping = this.atlas.getBlockUVs(blockId);
                             let texName = '';
                             if (typeof uvMapping === 'string') {
                                 texName = uvMapping;
+                            } else if (uvMapping) {
+                                if (face.name === 'top') texName = uvMapping.top || uvMapping.all;
+                                else if (face.name === 'bottom') texName = uvMapping.bottom || uvMapping.all;
+                                else if (face.name === 'front' && uvMapping.front) texName = uvMapping.front;
+                                else texName = uvMapping.side || uvMapping.all || 'stone';
                             } else {
-                                if (face.name === 'top') texName = uvMapping.top;
-                                else if (face.name === 'bottom') texName = uvMapping.bottom;
-                                else texName = uvMapping.side || uvMapping.all;
+                                texName = 'stone';
                             }
 
                             const uv = this.atlas.getUVs(texName);
