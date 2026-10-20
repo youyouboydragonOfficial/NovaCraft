@@ -730,6 +730,110 @@
                     this.drawPixel('glowstone', x, y, gv, Math.floor(gv * 0.85), Math.floor(gv * 0.45));
                 }
             }
+
+            // ★ 45. FIRE, NETHER PORTAL, SAPLING, LADDER, BED
+            const rngExtra = createRNG(4321);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const n = rngExtra();
+
+                    // Fire (Cross-model flickering flame)
+                    const flameH = 4 + Math.floor(Math.sin(x * 0.9) * 3 + n * 4);
+                    if (y >= flameH && x >= 2 && x <= 13) {
+                        if (y > 11 && x >= 5 && x <= 10) {
+                            this.drawPixel('fire', x, y, 255, 245, 110, 255); // Bright yellow core
+                        } else if (y > 8) {
+                            this.drawPixel('fire', x, y, 255, 150, 25, 245); // Orange flame
+                        } else {
+                            this.drawPixel('fire', x, y, 235, 55, 15, 220); // Red tips
+                        }
+                    } else {
+                        this.drawPixel('fire', x, y, 0, 0, 0, 0);
+                    }
+
+                    // Nether Portal (Swirling purple vortex)
+                    const swirl = Math.sin((x - 7.5) * 0.6 + (y - 7.5) * 0.6);
+                    this.drawPixel('nether_portal', x, y, Math.floor(155 + swirl * 60), 25, Math.floor(225 + swirl * 30), 210);
+
+                    // Oak Sapling
+                    if (x >= 7 && x <= 8 && y >= 10 && y <= 15) {
+                        this.drawPixel('sapling', x, y, 115, 78, 42, 255);
+                    } else if (x >= 4 && x <= 11 && y >= 4 && y <= 10 && ((x + y) % 2 === 0 || n > 0.4)) {
+                        this.drawPixel('sapling', x, y, 55, 165, 45, 255);
+                    } else {
+                        this.drawPixel('sapling', x, y, 0, 0, 0, 0);
+                    }
+
+                    // Ladder
+                    const isRail = (x === 3 || x === 4 || x === 11 || x === 12);
+                    const isRung = (y % 4 === 1 || y % 4 === 2) && (x >= 3 && x <= 12);
+                    if (isRail || isRung) {
+                        this.drawPixel('ladder', x, y, 155, 115, 65, 255);
+                    } else {
+                        this.drawPixel('ladder', x, y, 0, 0, 0, 0);
+                    }
+
+                    // Bed (Red blanket + white pillow + wood base)
+                    if (y < 5) {
+                        this.drawPixel('bed_top', x, y, 240, 240, 245); // Pillow
+                    } else {
+                        this.drawPixel('bed_top', x, y, 200, 35, 35); // Red blanket
+                    }
+                    if (y >= 11) {
+                        this.drawPixel('bed_side', x, y, 155, 115, 65); // Wood frame
+                    } else {
+                        this.drawPixel('bed_side', x, y, x < 5 ? 240 : 200, x < 5 ? 240 : 35, x < 5 ? 245 : 35);
+                    }
+                }
+            }
+
+            // ★ 46. WOOLS, MOSSY COBBLE, SANDSTONE, NETHERRACK, SOUL SAND, CRYING OBSIDIAN, AMETHYST, COPPER, LAMP, MINERAL BLOCKS
+            const rngMat = createRNG(9876);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const n = rngMat();
+                    const wv = Math.floor(225 + n * 25);
+                    this.drawPixel('wool_white', x, y, wv, wv, wv);
+                    this.drawPixel('wool_red', x, y, Math.floor(185 + n * 35), 32, 32);
+                    this.drawPixel('wool_blue', x, y, 35, 65, Math.floor(185 + n * 40));
+
+                    // Mossy Cobblestone
+                    const isMoss = (n > 0.58);
+                    const cv = Math.floor(95 + n * 35);
+                    this.drawPixel('mossy_cobblestone', x, y, isMoss ? 55 : cv, isMoss ? 135 : cv, isMoss ? 42 : cv);
+
+                    // Sandstone
+                    const sv = (y < 3) ? 230 : Math.floor(210 + n * 20);
+                    this.drawPixel('sandstone', x, y, sv, sv - 15, sv - 65);
+
+                    // Netherrack
+                    this.drawPixel('netherrack', x, y, Math.floor(105 + n * 45), Math.floor(35 + n * 20), Math.floor(35 + n * 20));
+
+                    // Soul Sand
+                    this.drawPixel('soul_sand', x, y, Math.floor(70 + n * 25), Math.floor(52 + n * 20), Math.floor(42 + n * 16));
+
+                    // Crying Obsidian
+                    const isCry = (n > 0.78);
+                    this.drawPixel('crying_obsidian', x, y, isCry ? 165 : 24, isCry ? 45 : 14, isCry ? 255 : 42);
+
+                    // Amethyst Block
+                    this.drawPixel('amethyst_block', x, y, Math.floor(135 + n * 55), Math.floor(75 + n * 40), Math.floor(205 + n * 45));
+
+                    // Copper Block
+                    const isBorder = (x === 0 || x === 15 || y === 0 || y === 15);
+                    this.drawPixel('copper_block', x, y, isBorder ? 165 : 205, isBorder ? 85 : 112, isBorder ? 55 : 75);
+
+                    // Redstone Lamp
+                    const isLampFrame = (x === 0 || x === 15 || y === 0 || y === 15 || x === y || x + y === 15);
+                    this.drawPixel('redstone_lamp', x, y, isLampFrame ? 75 : 250, isLampFrame ? 45 : 210, isLampFrame ? 25 : 115);
+
+                    // Redstone, Emerald, Lapis, Netherite Blocks
+                    this.drawPixel('redstone_block', x, y, isBorder ? 155 : 215, 22, 18);
+                    this.drawPixel('emerald_block', x, y, 25, isBorder ? 165 : 225, isBorder ? 65 : 95);
+                    this.drawPixel('lapis_block', x, y, 28, 55, isBorder ? 155 : 205);
+                    this.drawPixel('netherite_block', x, y, isBorder ? 45 : 68, isBorder ? 40 : 62, isBorder ? 48 : 70);
+                }
+            }
         }
 
         // Returns UV mapping object for a block type
@@ -832,7 +936,7 @@
                 case B.JUMP_PAD.id:
                     return { top: 'jump_pad', bottom: 'stone', side: 'stone' };
 
-                // ★ ディープダーク・古代都市ブロック
+                // ★ ディープダーク・古代都市 & 追加バニラブロック
                 case B.DEEPSLATE?.id:
                     return { all: 'deepslate' };
                 case B.DEEPSLATE_BRICKS?.id:
@@ -853,6 +957,46 @@
                     return { all: 'stone_bricks' };
                 case B.GLOWSTONE?.id:
                     return { all: 'glowstone' };
+                case B.FIRE?.id:
+                    return { all: 'fire' };
+                case B.NETHER_PORTAL?.id:
+                    return { all: 'nether_portal' };
+                case B.WOOL_WHITE?.id:
+                    return { all: 'wool_white' };
+                case B.WOOL_RED?.id:
+                    return { all: 'wool_red' };
+                case B.WOOL_BLUE?.id:
+                    return { all: 'wool_blue' };
+                case B.MOSSY_COBBLESTONE?.id:
+                    return { all: 'mossy_cobblestone' };
+                case B.SANDSTONE?.id:
+                    return { all: 'sandstone' };
+                case B.NETHERRACK?.id:
+                    return { all: 'netherrack' };
+                case B.SOUL_SAND?.id:
+                    return { all: 'soul_sand' };
+                case B.CRYING_OBSIDIAN?.id:
+                    return { all: 'crying_obsidian' };
+                case B.AMETHYST_BLOCK?.id:
+                    return { all: 'amethyst_block' };
+                case B.COPPER_BLOCK?.id:
+                    return { all: 'copper_block' };
+                case B.REDSTONE_LAMP?.id:
+                    return { all: 'redstone_lamp' };
+                case B.LADDER?.id:
+                    return { all: 'ladder' };
+                case B.SAPLING?.id:
+                    return { all: 'sapling' };
+                case B.BED?.id:
+                    return { top: 'bed_top', bottom: 'oak_planks', side: 'bed_side' };
+                case B.REDSTONE_BLOCK?.id:
+                    return { all: 'redstone_block' };
+                case B.EMERALD_BLOCK?.id:
+                    return { all: 'emerald_block' };
+                case B.LAPIS_BLOCK?.id:
+                    return { all: 'lapis_block' };
+                case B.NETHERITE_BLOCK?.id:
+                    return { all: 'netherite_block' };
 
                 default:
                     return { all: 'stone' };
@@ -932,10 +1076,87 @@
                 else if (itemKey.includes('iron')) matColor = '#d8d8d8';
                 else if (itemKey.includes('gold')) matColor = '#fcee4b';
                 else if (itemKey.includes('diamond')) matColor = '#4eeded';
+                else if (itemKey.includes('netherite')) matColor = '#4d444f';
                 else if (itemKey.includes('astral')) matColor = '#df44ff';
                 else if (itemKey.includes('laser')) matColor = '#33eeff';
 
-                if (itemKey.includes('pickaxe') || itemKey.includes('drill')) {
+                if (itemKey === 'flint_and_steel') {
+                    // Iconic Flint & Steel (Steel C-striker on left + Dark grey Flint on right)
+                    ctx.fillStyle = '#d4d8de'; // Steel striker
+                    ctx.fillRect(2, 3, 5, 2);
+                    ctx.fillRect(2, 5, 2, 5);
+                    ctx.fillRect(2, 9, 5, 2);
+                    ctx.fillStyle = '#36363c'; // Dark flint shard
+                    ctx.fillRect(8, 7, 5, 6);
+                    ctx.fillStyle = '#585862';
+                    ctx.fillRect(9, 8, 3, 3);
+                } else if (itemKey === 'flint') {
+                    ctx.fillStyle = '#2d2d32';
+                    ctx.fillRect(5, 3, 6, 10);
+                    ctx.fillRect(4, 6, 8, 6);
+                    ctx.fillStyle = '#5a5a64';
+                    ctx.fillRect(6, 5, 3, 4);
+                } else if (itemKey === 'fire_charge') {
+                    ctx.fillStyle = '#332211';
+                    ctx.fillRect(3, 3, 10, 10);
+                    ctx.fillStyle = '#ff6600';
+                    ctx.fillRect(4, 4, 8, 8);
+                    ctx.fillStyle = '#ffee44';
+                    ctx.fillRect(6, 6, 4, 4);
+                } else if (itemKey.includes('bucket')) {
+                    ctx.fillStyle = '#b8bcc2';
+                    ctx.fillRect(3, 5, 10, 7);
+                    ctx.fillRect(5, 12, 6, 2);
+                    if (itemKey === 'water_bucket') {
+                        ctx.fillStyle = '#2b6ef2';
+                        ctx.fillRect(4, 5, 8, 3);
+                    } else if (itemKey === 'lava_bucket') {
+                        ctx.fillStyle = '#ff5511';
+                        ctx.fillRect(4, 5, 8, 3);
+                    } else {
+                        ctx.fillStyle = '#55585e';
+                        ctx.fillRect(4, 5, 8, 3);
+                    }
+                } else if (itemKey === 'bow') {
+                    ctx.fillStyle = '#8b5a2b';
+                    ctx.fillRect(4, 2, 2, 3);
+                    ctx.fillRect(3, 5, 2, 6);
+                    ctx.fillRect(4, 11, 2, 3);
+                    ctx.fillStyle = '#dcdcdc'; // Bowstring
+                    ctx.fillRect(6, 3, 1, 10);
+                } else if (itemKey === 'arrow') {
+                    ctx.fillStyle = '#8b5a2b';
+                    for (let i = 3; i < 12; i++) ctx.fillRect(i, 15 - i, 1, 1);
+                    ctx.fillStyle = '#d8d8d8'; // Arrowhead
+                    ctx.fillRect(10, 2, 3, 3);
+                    ctx.fillStyle = '#ffffff'; // Feather fletching
+                    ctx.fillRect(2, 11, 3, 3);
+                } else if (itemKey === 'shears') {
+                    ctx.fillStyle = '#8b4513';
+                    ctx.fillRect(3, 10, 3, 3); ctx.fillRect(7, 11, 3, 3);
+                    ctx.fillStyle = '#dcdcdc';
+                    ctx.fillRect(6, 4, 2, 6); ctx.fillRect(9, 6, 4, 2);
+                } else if (itemKey === 'ender_pearl') {
+                    ctx.fillStyle = '#0e4d45';
+                    ctx.fillRect(4, 4, 8, 8);
+                    ctx.fillStyle = '#25b59c';
+                    ctx.fillRect(5, 5, 6, 6);
+                    ctx.fillStyle = '#99ffee';
+                    ctx.fillRect(6, 6, 2, 2);
+                } else if (itemKey === 'spyglass') {
+                    ctx.fillStyle = '#d47a38';
+                    ctx.fillRect(4, 9, 4, 4);
+                    ctx.fillRect(7, 6, 4, 4);
+                    ctx.fillStyle = '#9d55d4';
+                    ctx.fillRect(10, 3, 3, 3);
+                } else if (itemKey === 'compass' || itemKey === 'clock') {
+                    ctx.fillStyle = (itemKey === 'clock') ? '#fcee4b' : '#a8adb5';
+                    ctx.fillRect(3, 3, 10, 10);
+                    ctx.fillStyle = '#222222';
+                    ctx.fillRect(5, 5, 6, 6);
+                    ctx.fillStyle = (itemKey === 'clock') ? '#44aaff' : '#ff2222';
+                    ctx.fillRect(7, 5, 2, 4);
+                } else if (itemKey.includes('pickaxe') || itemKey.includes('drill')) {
                     // Pickaxe
                     ctx.fillStyle = '#6d4c28'; // Stick
                     for (let i = 4; i < 13; i++) ctx.fillRect(i, 16 - i, 1, 1);
@@ -968,43 +1189,47 @@
                     ctx.fillRect(9, 2, 5, 5);
                 } else if (itemKey.includes('apple')) {
                     // Apple
-                    ctx.fillStyle = itemKey.includes('gold') ? '#fcee4b' : '#d82222';
+                    ctx.fillStyle = itemKey.includes('enchanted') ? '#d866ff' : (itemKey.includes('gold') ? '#fcee4b' : '#d82222');
                     ctx.fillRect(4, 4, 8, 8);
                     ctx.fillStyle = '#449922'; // Leaf
                     ctx.fillRect(7, 2, 2, 2);
-                } else if (itemKey.includes('beef') || itemKey.includes('meat')) {
-                    // Steak / Beef
-                    ctx.fillStyle = itemKey.includes('cooked') ? '#7d3820' : '#b22222';
+                } else if (itemKey.includes('beef') || itemKey.includes('pork') || itemKey.includes('chicken') || itemKey.includes('flesh') || itemKey.includes('fish')) {
+                    ctx.fillStyle = itemKey.includes('cooked') ? '#8c4625' : (itemKey.includes('flesh') ? '#6b4428' : '#d45555');
                     ctx.fillRect(3, 4, 10, 8);
-                    ctx.fillStyle = '#ffffff'; // Bone tip
+                    ctx.fillStyle = '#ffffff';
                     ctx.fillRect(11, 3, 2, 2);
-                } else if (itemKey.includes('bread')) {
-                    // Bread
+                } else if (itemKey.includes('bread') || itemKey.includes('potato') || itemKey.includes('pie') || itemKey.includes('cookie')) {
                     ctx.fillStyle = '#c68a4c';
                     ctx.fillRect(2, 6, 12, 5);
-                } else if (itemKey.includes('crystal') || itemKey.includes('diamond') || itemKey.includes('emerald')) {
-                    // Gem
-                    ctx.fillStyle = matColor;
+                } else if (itemKey.includes('carrot') || itemKey.includes('melon')) {
+                    ctx.fillStyle = itemKey.includes('carrot') ? '#ff7711' : '#dd3333';
+                    ctx.fillRect(4, 4, 8, 8);
+                } else if (itemKey.includes('crystal') || itemKey.includes('diamond') || itemKey.includes('emerald') || itemKey.includes('shard')) {
+                    ctx.fillStyle = itemKey.includes('shard') ? '#22d8e8' : matColor;
                     ctx.fillRect(6, 3, 4, 10);
                     ctx.fillRect(4, 5, 8, 6);
                 } else if (itemKey.includes('ingot')) {
-                    // Ingot
                     ctx.fillStyle = matColor;
                     ctx.fillRect(3, 7, 10, 4);
                     ctx.fillRect(5, 5, 6, 2);
                 } else if (itemKey.includes('boots')) {
-                    // Boots
                     ctx.fillStyle = matColor;
                     ctx.fillRect(3, 6, 3, 6); ctx.fillRect(2, 10, 4, 2);
                     ctx.fillRect(10, 6, 3, 6); ctx.fillRect(9, 10, 4, 2);
                 } else if (itemKey.includes('jetpack')) {
-                    // Jetpack
                     ctx.fillStyle = '#666666';
                     ctx.fillRect(3, 4, 4, 8);
                     ctx.fillRect(9, 4, 4, 8);
-                    ctx.fillStyle = '#ff5500'; // Thruster flame
+                    ctx.fillStyle = '#ff5500';
                     ctx.fillRect(4, 12, 2, 3);
                     ctx.fillRect(10, 12, 2, 3);
+                } else if (itemKey === 'bone' || itemKey === 'feather') {
+                    ctx.fillStyle = '#eeeeee';
+                    for (let i = 3; i < 13; i++) ctx.fillRect(i, 16 - i, 2, 2);
+                } else if (itemKey === 'gunpowder' || itemKey === 'bone_meal' || itemKey === 'coal' || itemKey === 'redstone') {
+                    ctx.fillStyle = itemKey === 'bone_meal' ? '#f2f2f2' : (itemKey === 'redstone' ? '#dd1111' : '#444444');
+                    ctx.fillRect(4, 5, 8, 7);
+                    ctx.fillRect(6, 3, 4, 2);
                 } else {
                     // Generic material / stick
                     ctx.fillStyle = '#8b5a2b';

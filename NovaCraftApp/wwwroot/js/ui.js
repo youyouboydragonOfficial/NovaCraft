@@ -368,6 +368,10 @@
             }
         }
 
+        renderCreativeCatalog() {
+            this.initCreativeCatalog();
+        }
+
         initCreativeCatalog() {
             const catalogGrid = document.getElementById('creative-catalog-grid');
             if (!catalogGrid) return;

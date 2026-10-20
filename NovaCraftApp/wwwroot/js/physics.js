@@ -40,6 +40,18 @@
             return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
         }
 
+        intersects(other) {
+            const EPS = 0.001;
+            return (
+                this.maxX > other.minX + EPS &&
+                this.minX < other.maxX - EPS &&
+                this.maxY > other.minY + EPS &&
+                this.minY < other.maxY - EPS &&
+                this.maxZ > other.minZ + EPS &&
+                this.minZ < other.maxZ - EPS
+            );
+        }
+
         // Authentic Minecraft Axis-Aligned Collision Clipping
         clipXCollide(c, dx) {
             const EPS = 0.0001;

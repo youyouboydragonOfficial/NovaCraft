@@ -190,6 +190,55 @@
                 blockMesh.position.set(0, 0.22, -0.06);
                 blockMesh.rotation.set(0.3, 0.6, 0.1);
                 armRig.add(blockMesh);
+            } else if (itemKey === 'flint_and_steel') {
+                // Authentic 3D Flint and Steel (着火石) in hand
+                const fsGroup = new THREE.Group();
+                const steelMat = new THREE.MeshLambertMaterial({ color: 0xd8d8d8 });
+                const flintMat = new THREE.MeshLambertMaterial({ color: 0x2a2a2e });
+                const strikerTop = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.05), steelMat);
+                strikerTop.position.set(-0.02, 0.28, 0);
+                const strikerSide = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.05), steelMat);
+                strikerSide.position.set(-0.07, 0.20, 0);
+                const flintPiece = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.12, 0.06), flintMat);
+                flintPiece.position.set(0.05, 0.18, 0);
+                fsGroup.add(strikerTop, strikerSide, flintPiece);
+                fsGroup.rotation.set(0.3, 0.2, -0.1);
+                armRig.add(fsGroup);
+            } else if (itemKey === 'bow') {
+                // Authentic 3D Bow & String in hand
+                const bowGroup = new THREE.Group();
+                const woodMat = new THREE.MeshLambertMaterial({ color: 0x7a4e25 });
+                const stringMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee });
+                const limbMid = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.26, 0.05), woodMat);
+                limbMid.position.set(0, 0.30, -0.06);
+                const limbTop = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.20, 0.045), woodMat);
+                limbTop.position.set(0, 0.48, 0.02);
+                limbTop.rotation.x = -0.45;
+                const limbBot = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.20, 0.045), woodMat);
+                limbBot.position.set(0, 0.12, 0.02);
+                limbBot.rotation.x = 0.45;
+                const bowString = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.52, 0.015), stringMat);
+                bowString.position.set(0, 0.30, 0.09);
+                bowGroup.add(limbMid, limbTop, limbBot, bowString);
+                bowGroup.rotation.set(0.2, 0.1, 0);
+                armRig.add(bowGroup);
+            } else if (itemKey?.includes('bucket')) {
+                // 3D Iron Bucket (Empty, Water, or Lava)
+                const bucketGroup = new THREE.Group();
+                const ironMat = new THREE.MeshLambertMaterial({ color: 0xc8ccd0 });
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.20, 0.18), ironMat);
+                body.position.set(0, 0.22, 0);
+                bucketGroup.add(body);
+                if (itemKey === 'water_bucket' || itemKey === 'lava_bucket') {
+                    const liquidColor = (itemKey === 'water_bucket') ? 0x2268e8 : 0xff5500;
+                    const liquid = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.15, 0.04, 0.15),
+                        new THREE.MeshBasicMaterial({ color: liquidColor })
+                    );
+                    liquid.position.set(0, 0.31, 0);
+                    bucketGroup.add(liquid);
+                }
+                armRig.add(bucketGroup);
             } else if (itemDef?.category === 'combat' || itemKey?.includes('sword') || itemKey?.includes('blade')) {
                 // Authentic Minecraft 3D Sword (Handle, Crossguard, Blade)
                 const swordGroup = new THREE.Group();
@@ -217,6 +266,7 @@
                 else if (itemKey?.includes('iron')) bladeColor = 0xe0e0e0;
                 else if (itemKey?.includes('gold')) bladeColor = 0xffd700;
                 else if (itemKey?.includes('diamond')) bladeColor = 0x4dedf0;
+                else if (itemKey?.includes('netherite')) bladeColor = 0x483c42;
                 else if (itemKey?.includes('astral')) bladeColor = 0xd044ff; // Glowing Astral
 
                 const bladeMat = new THREE.MeshLambertMaterial({ color: bladeColor });
@@ -229,7 +279,7 @@
                 swordGroup.position.set(0, 0.06, 0);
                 armRig.add(swordGroup);
             } else if (itemDef?.category === 'tools') {
-                // Tools (Pickaxe, Axe, Shovel)
+                // Tools (Pickaxe, Axe, Shovel, Shears, Spyglass, Fishing Rod)
                 const toolGroup = new THREE.Group();
                 const stickMat = new THREE.MeshLambertMaterial({ color: 0x6b4423 });
                 const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.50, 0.05), stickMat);
@@ -238,9 +288,10 @@
 
                 let headColor = 0x888888;
                 if (itemKey?.includes('wood')) headColor = 0x8a6035;
-                else if (itemKey?.includes('iron')) headColor = 0xd8d8d8;
-                else if (itemKey?.includes('gold')) headColor = 0xffd700;
+                else if (itemKey?.includes('iron') || itemKey === 'shears') headColor = 0xd8d8d8;
+                else if (itemKey?.includes('gold') || itemKey === 'spyglass') headColor = 0xffb833;
                 else if (itemKey?.includes('diamond') || itemKey?.includes('laser')) headColor = 0x44eeff;
+                else if (itemKey?.includes('netherite')) headColor = 0x483c42;
 
                 const headMat = new THREE.MeshLambertMaterial({ color: headColor });
                 if (itemKey?.includes('pickaxe') || itemKey?.includes('drill')) {
@@ -260,8 +311,12 @@
                 toolGroup.rotation.set(0.65, 0.1, -0.2);
                 armRig.add(toolGroup);
             } else if (itemDef) {
-                // Generic items (Torch, Food, etc.)
-                const itemIcon = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, 0.06), new THREE.MeshLambertMaterial({ color: 0xffaa44 }));
+                // Generic items (Food, Ender Pearl, Fire Charge, etc.)
+                let itemColor = 0xffaa44;
+                if (itemKey === 'ender_pearl') itemColor = 0x188f7c;
+                else if (itemKey === 'fire_charge') itemColor = 0xff5500;
+                else if (itemKey === 'snowball' || itemKey === 'bone_meal') itemColor = 0xf5f5f5;
+                const itemIcon = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.20, 0.08), new THREE.MeshLambertMaterial({ color: itemColor }));
                 itemIcon.position.set(0, 0.20, 0);
                 armRig.add(itemIcon);
             }
@@ -274,6 +329,11 @@
 
         setupInputs() {
             const dom = this.renderer.domElement;
+
+            // Prevent browser right-click context menu from interrupting block placement or item use
+            window.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
 
             dom.addEventListener('click', () => {
                 if (this.inventory.openMode === 'none') {
@@ -432,7 +492,7 @@
 
         handleLeftClick() {
             // Check mob hit
-            const ray = this.player.raycast(3.5);
+            const ray = this.player.raycast(4.5);
             const cameraDir = new THREE.Vector3();
             this.camera.getWorldDirection(cameraDir);
             const origin = new THREE.Vector3(this.player.x, this.player.y + this.player.eyeHeight, this.player.z);
@@ -448,34 +508,264 @@
                 return;
             }
 
-            // Creative instant break
-            if (this.player.gameMode === 'creative' && ray) {
+            if (ray) {
                 const bId = ray.blockId;
                 const def = window.BLOCK_BY_ID[bId];
-                this.world.setBlock(ray.x, ray.y, ray.z, window.BLOCKS.AIR.id);
-                this.sound.playBreak(def?.sound || 'stone');
-                this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0xaaaaaa, 8);
-                // Safe Sand/Gravel gravity physics
-                this.world.applyGravityAbove(ray.x, ray.y, ray.z);
+                const B = window.BLOCKS;
+
+                // Instant break in Creative OR for 0-hardness blocks (Fire, Torch, Flowers, Sapling, TNT punch if creative)
+                if (this.player.gameMode === 'creative' || (def && def.hardness === 0.0)) {
+                    this.world.setBlock(ray.x, ray.y, ray.z, B.AIR.id);
+                    if (B.FIRE && bId === B.FIRE.id) {
+                        this.sound.playFuse();
+                        this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0x555555, 6);
+                    } else {
+                        this.sound.playBreak(def?.sound || 'stone');
+                        this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0xaaaaaa, 8);
+                        if (this.player.gameMode !== 'creative' && def?.drop) {
+                            this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, def.drop);
+                        }
+                    }
+                    this.world.applyGravityAbove(ray.x, ray.y, ray.z);
+                }
             }
         }
 
         handleRightClick() {
             const heldItem = this.inventory.getSelectedItem();
-            const ray = this.player.raycast(5.0);
+            const itemKey = heldItem ? heldItem.item : null;
+            const itemDef = itemKey ? window.ITEMS[itemKey] : null;
+            const ray = this.player.raycast(5.5);
+            const B = window.BLOCKS;
+            const isSneaking = !!(this.input.keys['ShiftLeft'] || this.input.keys['ShiftRight']);
 
-            // ★ 1. Custom Item: Astral Blade (Shockwave Slash!)
-            if (heldItem && heldItem.item === 'astral_blade') {
-                const dir = new THREE.Vector3();
-                this.camera.getWorldDirection(dir);
-                const origin = new THREE.Vector3(this.player.x, this.player.y + this.player.eyeHeight, this.player.z);
-                this.itemManager.shootAstralSlash(origin.addScaledVector(dir, 1.0), dir);
+            const dir = new THREE.Vector3();
+            this.camera.getWorldDirection(dir);
+            const eyeOrigin = new THREE.Vector3(this.player.x, this.player.y + this.player.eyeHeight, this.player.z);
+
+            // ★ 1. Flint and Steel (火打石と打ち金 / 着火石) & Fire Charge (ファイヤーチャージ)
+            if (itemKey === 'flint_and_steel' || itemKey === 'fire_charge') {
+                this.player.swingHand();
+                if (this.sound.playFlintAndSteel) this.sound.playFlintAndSteel();
+
+                if (ray) {
+                    const bId = ray.blockId;
+                    // 1a. Ignite TNT or Cluster TNT!
+                    if (bId === B.TNT.id || bId === B.CLUSTER_TNT.id) {
+                        this.itemManager.igniteTnt(ray.x, ray.y, ray.z, bId === B.CLUSTER_TNT.id);
+                        if (itemKey === 'fire_charge' && this.player.gameMode !== 'creative') {
+                            this.inventory.consumeSelectedItem(1);
+                        }
+                        return;
+                    }
+                    // 1b. Ignite Obsidian -> Activate Nether Portal!
+                    if (bId === B.OBSIDIAN.id && B.NETHER_PORTAL) {
+                        const px = ray.x + ray.normal[0];
+                        const py = ray.y + ray.normal[1];
+                        const pz = ray.z + ray.normal[2];
+                        for (let dy = 0; dy < 3; dy++) {
+                            for (let dx = 0; dx < 2; dx++) {
+                                if (this.world.getBlock(px + dx, py + dy, pz) === B.AIR.id) {
+                                    this.world.setBlock(px + dx, py + dy, pz, B.NETHER_PORTAL.id);
+                                }
+                            }
+                        }
+                        this.sound.playWarp();
+                        this.itemManager.spawnBlockParticles(px + 0.5, py + 1.0, pz + 0.5, 0xb533ff, 24);
+                        this.ui.addChatMessage('🔥 黒曜石に着火し、ネザーポータルが起動しました！', '#d066ff');
+                        if (itemKey === 'fire_charge' && this.player.gameMode !== 'creative') {
+                            this.inventory.consumeSelectedItem(1);
+                        }
+                        return;
+                    }
+                    // 1c. Ignite Fire on the clicked block face!
+                    if (B.FIRE) {
+                        const fx = ray.x + ray.normal[0];
+                        const fy = ray.y + ray.normal[1];
+                        const fz = ray.z + ray.normal[2];
+                        if (this.world.getBlock(fx, fy, fz) === B.AIR.id) {
+                            this.world.setBlock(fx, fy, fz, B.FIRE.id);
+                            this.itemManager.spawnBlockParticles(fx + 0.5, fy + 0.3, fz + 0.5, 0xff7711, 10);
+                            if (itemKey === 'fire_charge' && this.player.gameMode !== 'creative') {
+                                this.inventory.consumeSelectedItem(1);
+                            }
+                            return;
+                        }
+                    }
+                } else if (itemKey === 'fire_charge') {
+                    // Shoot Fireball into the air!
+                    this.itemManager.shootFireball(eyeOrigin.clone().addScaledVector(dir, 0.8), dir);
+                    if (this.player.gameMode !== 'creative') {
+                        this.inventory.consumeSelectedItem(1);
+                    }
+                    return;
+                }
+                return;
+            }
+
+            // ★ 2. Bow & Arrow (弓矢の発射)
+            if (itemKey === 'bow') {
+                // In survival, check if player has arrows (or allow shooting if creative)
+                let canShoot = (this.player.gameMode === 'creative');
+                if (!canShoot) {
+                    for (let i = 0; i < 36; i++) {
+                        if (this.inventory.slots[i] && this.inventory.slots[i].item === 'arrow') {
+                            this.inventory.slots[i].count--;
+                            if (this.inventory.slots[i].count <= 0) this.inventory.slots[i] = null;
+                            canShoot = true;
+                            break;
+                        }
+                    }
+                    // Even if out of arrows, allow shooting basic arrows so bow is always fun & usable!
+                    canShoot = true;
+                }
+                if (canShoot) {
+                    this.itemManager.shootArrow(eyeOrigin.clone().addScaledVector(dir, 0.8), dir, 1.0);
+                    this.player.swingHand();
+                }
+                return;
+            }
+
+            // ★ 3. Ender Pearl (エンダーパール瞬間移動)
+            if (itemKey === 'ender_pearl') {
+                this.itemManager.throwEnderPearl(eyeOrigin.clone().addScaledVector(dir, 0.8), dir);
+                this.player.swingHand();
+                if (this.player.gameMode !== 'creative') {
+                    this.inventory.consumeSelectedItem(1);
+                }
+                return;
+            }
+
+            // ★ 4. Snowball (雪玉の投擲)
+            if (itemKey === 'snowball') {
+                this.itemManager.throwSnowball(eyeOrigin.clone().addScaledVector(dir, 0.8), dir);
+                this.player.swingHand();
+                if (this.player.gameMode !== 'creative') {
+                    this.inventory.consumeSelectedItem(1);
+                }
+                return;
+            }
+
+            // ★ 5. Buckets (空のバケツ・水バケツ・溶岩バケツ)
+            if (itemKey === 'bucket') {
+                const fluidHit = this.player.raycastFluid(5.0);
+                if (fluidHit) {
+                    this.world.setBlock(fluidHit.x, fluidHit.y, fluidHit.z, B.AIR.id);
+                    const newBucket = (fluidHit.blockId === B.WATER.id) ? 'water_bucket' : 'lava_bucket';
+                    if (this.player.gameMode !== 'creative') {
+                        this.inventory.consumeSelectedItem(1);
+                        this.inventory.addItem(newBucket, 1);
+                    } else {
+                        this.inventory.slots[this.inventory.selectedHotbarIndex] = { item: newBucket, count: 1 };
+                    }
+                    this.sound.playPop();
+                    this.player.swingHand();
+                    return;
+                }
+            } else if ((itemKey === 'water_bucket' || itemKey === 'lava_bucket') && ray) {
+                const px = ray.x + ray.normal[0];
+                const py = ray.y + ray.normal[1];
+                const pz = ray.z + ray.normal[2];
+                const fluidBlockId = (itemKey === 'water_bucket') ? B.WATER.id : B.LAVA.id;
+                this.world.setBlock(px, py, pz, fluidBlockId);
+                if (this.player.gameMode !== 'creative') {
+                    this.inventory.slots[this.inventory.selectedHotbarIndex] = { item: 'bucket', count: 1 };
+                }
+                this.sound.playPlace();
                 this.player.swingHand();
                 return;
             }
 
-            // ★ 2. Custom Item: Laser Drill (Area Mine 3x3x3!)
-            if (heldItem && heldItem.item === 'laser_drill' && ray) {
+            // ★ 6. Bone Meal (骨粉: 苗木の即座成長＆草花生成)
+            if (itemKey === 'bone_meal' && ray) {
+                const bId = ray.blockId;
+                if (B.SAPLING && bId === B.SAPLING.id) {
+                    this.world.setBlock(ray.x, ray.y, ray.z, B.AIR.id);
+                    this.world.generateTree(ray.x, ray.y, ray.z);
+                    this.world.updateChunksAround(ray.x, ray.z, 1);
+                    this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 1.5, ray.z + 0.5, 0x44ff44, 20);
+                    this.sound.playHeal();
+                    this.player.swingHand();
+                    if (this.player.gameMode !== 'creative') this.inventory.consumeSelectedItem(1);
+                    return;
+                } else if (bId === B.GRASS.id || bId === B.DIRT.id) {
+                    this.world.setBlock(ray.x, ray.y, ray.z, B.GRASS.id);
+                    for (let dx = -2; dx <= 2; dx++) {
+                        for (let dz = -2; dz <= 2; dz++) {
+                            const gx = ray.x + dx;
+                            const gz = ray.z + dz;
+                            if (this.world.getBlock(gx, ray.y, gz) === B.GRASS.id && this.world.getBlock(gx, ray.y + 1, gz) === B.AIR.id) {
+                                if (Math.random() < 0.35) {
+                                    const flowerId = (Math.random() < 0.5) ? B.FLOWER_RED.id : B.FLOWER_YELLOW.id;
+                                    this.world.setBlock(gx, ray.y + 1, gz, flowerId);
+                                }
+                            }
+                        }
+                    }
+                    this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 1.1, ray.z + 0.5, 0x44ff44, 15);
+                    this.sound.playPop();
+                    this.player.swingHand();
+                    if (this.player.gameMode !== 'creative') this.inventory.consumeSelectedItem(1);
+                    return;
+                }
+            }
+
+            // ★ 7. Shears (ハサミ: 羊の毛刈り＆葉ブロック採取)
+            if (itemKey === 'shears') {
+                const hitMob = this.mobManager.checkMobHit(eyeOrigin.clone().addScaledVector(dir, 2.2), 1.8);
+                if (hitMob && hitMob.type === 'sheep') {
+                    const woolCount = 2 + Math.floor(Math.random() * 2);
+                    this.itemManager.spawnDroppedItem(hitMob.x, hitMob.y + 0.6, hitMob.z, 'wool_white', woolCount);
+                    this.itemManager.spawnBlockParticles(hitMob.x, hitMob.y + 0.6, hitMob.z, 0xffffff, 10);
+                    this.sound.playPop();
+                    this.player.swingHand();
+                    return;
+                }
+                if (ray && ray.blockId === B.OAK_LEAVES.id) {
+                    this.world.setBlock(ray.x, ray.y, ray.z, B.AIR.id);
+                    this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 'oak_leaves', 1);
+                    this.sound.playBreak('grass');
+                    this.player.swingHand();
+                    return;
+                }
+            }
+
+            // ★ 8. Fishing Rod, Compass, Clock, Spyglass
+            if (itemKey === 'fishing_rod') {
+                this.player.swingHand();
+                this.sound.playBowShoot();
+                const catches = ['raw_cod', 'raw_salmon', 'raw_cod', 'raw_salmon', 'golden_apple'];
+                const caught = catches[Math.floor(Math.random() * catches.length)];
+                this.inventory.addItem(caught, 1);
+                this.sound.playPop();
+                this.ui.addChatMessage(`🎣 釣り竿で「${window.ITEMS[caught]?.nameJa || caught}」を釣り上げました！`, '#66ddff');
+                return;
+            } else if (itemKey === 'compass') {
+                const distAncient = Math.round(Math.hypot(32.5 - this.player.x, 32.5 - this.player.z));
+                this.ui.addChatMessage(`🧭 コンパス: 初期スポーン地点 (8, 8) / 古代都市 (32, 32 - 距離 ${distAncient}m)`, '#55ffaa');
+                return;
+            } else if (itemKey === 'clock') {
+                const totalHours = Math.floor(this.timeOfDay * 24);
+                const mins = Math.floor((this.timeOfDay * 24 - totalHours) * 60);
+                const hh = String(totalHours).padStart(2, '0');
+                const mm = String(mins).padStart(2, '0');
+                this.ui.addChatMessage(`🕒 時計: 現在時刻 ${hh}:${mm} (${this.timeOfDay < 0.5 ? '昼間 ☀️' : '夜間 🌙'})`, '#ffdd55');
+                return;
+            } else if (itemKey === 'spyglass') {
+                this.player.isZooming = !this.player.isZooming;
+                this.sound.playPop();
+                return;
+            }
+
+            // ★ 9. Custom Item: Astral Blade (Shockwave Slash!)
+            if (itemKey === 'astral_blade') {
+                this.itemManager.shootAstralSlash(eyeOrigin.clone().addScaledVector(dir, 1.0), dir);
+                this.player.swingHand();
+                return;
+            }
+
+            // ★ 10. Custom Item: Laser Drill (Area Mine 3x3x3!)
+            if (itemKey === 'laser_drill' && ray) {
                 this.sound.playLaser();
                 for (let dx = -1; dx <= 1; dx++) {
                     for (let dy = -1; dy <= 1; dy++) {
@@ -485,8 +775,8 @@
                             const bz = ray.z + dz;
                             const bId = this.world.getBlock(bx, by, bz);
                             const def = window.BLOCK_BY_ID[bId];
-                            if (def && def.solid && def.id !== window.BLOCKS.BEDROCK.id) {
-                                this.world.setBlock(bx, by, bz, window.BLOCKS.AIR.id);
+                            if (def && def.solid && def.id !== B.BEDROCK.id) {
+                                this.world.setBlock(bx, by, bz, B.AIR.id);
                                 if (def.drop) {
                                     this.itemManager.spawnDroppedItem(bx + 0.5, by + 0.5, bz + 0.5, def.drop);
                                 }
@@ -498,64 +788,74 @@
                 return;
             }
 
-            // 3. Eat Food
-            if (heldItem) {
-                const itemDef = window.ITEMS[heldItem.item];
-                if (itemDef?.category === 'food' && (this.player.food < this.player.maxFood || itemDef.heal)) {
-                    this.player.food = Math.min(this.player.maxFood, this.player.food + (itemDef.foodRestore || 0));
-                    if (itemDef.heal) this.player.heal(itemDef.heal);
+            // ★ 11. Eat Food
+            if (itemDef?.category === 'food' && (this.player.food < this.player.maxFood || itemDef.heal || this.player.gameMode === 'creative')) {
+                this.player.food = Math.min(this.player.maxFood, this.player.food + (itemDef.foodRestore || 4));
+                if (itemDef.heal) this.player.heal(itemDef.heal);
+                if (this.player.gameMode !== 'creative') {
                     this.inventory.consumeSelectedItem(1);
-                    this.sound.playPop();
-                    return;
                 }
+                this.sound.playPop();
+                this.player.swingHand();
+                return;
             }
 
-            // 4. Block Interaction (Crafting Table, Furnace, Chest, Waygate, TNT)
+            // ★ 12. Block Interaction & Block Placement
             if (ray) {
                 const bId = ray.blockId;
-                const B = window.BLOCKS;
 
-                if (bId === B.CRAFTING_TABLE.id) {
-                    this.ui.openModal('crafting');
-                    return;
-                } else if (bId === B.FURNACE.id) {
-                    this.ui.openModal('furnace');
-                    return;
-                } else if (bId === B.CHEST.id) {
-                    this.ui.openModal('chest');
-                    return;
-                } else if (bId === B.WAYGATE.id) {
-                    // ★ Teleport to next Waygate!
-                    this.teleportToNextWaygate(ray.x, ray.y, ray.z);
-                    return;
-                } else if (bId === B.TNT.id || bId === B.CLUSTER_TNT.id) {
-                    // Ignite TNT
-                    this.itemManager.igniteTnt(ray.x, ray.y, ray.z, bId === B.CLUSTER_TNT.id);
-                    return;
+                // Functional blocks (unless sneaking with a block in hand to build onto them)
+                if (!isSneaking) {
+                    if (bId === B.CRAFTING_TABLE.id) {
+                        this.ui.openModal('crafting');
+                        return;
+                    } else if (bId === B.FURNACE.id) {
+                        this.ui.openModal('furnace');
+                        return;
+                    } else if (bId === B.CHEST.id) {
+                        this.ui.openModal('chest');
+                        return;
+                    } else if (B.BED && bId === B.BED.id) {
+                        this.timeOfDay = 0.22; // Bright morning!
+                        this.player.heal(20);
+                        this.sound.playHeal();
+                        this.ui.addChatMessage('🛏️ ベッドで眠り、体力が全回復して爽やかな朝を迎えました！', '#ffdd55');
+                        return;
+                    } else if (bId === B.WAYGATE.id) {
+                        this.teleportToNextWaygate(ray.x, ray.y, ray.z);
+                        return;
+                    } else if ((bId === B.TNT.id || bId === B.CLUSTER_TNT.id) && itemKey !== 'tnt' && itemKey !== 'cluster_tnt') {
+                        // Right-clicking TNT ignites it (and holding TNT allows stacking more TNT blocks!)
+                        if (this.sound.playFlintAndSteel) this.sound.playFlintAndSteel();
+                        this.itemManager.igniteTnt(ray.x, ray.y, ray.z, bId === B.CLUSTER_TNT.id);
+                        this.player.swingHand();
+                        return;
+                    }
                 }
 
-                // 5. Place Block
-                if (heldItem) {
-                    const itemDef = window.ITEMS[heldItem.item];
-                    if (itemDef?.blockId) {
-                        const px = ray.x + ray.normal[0];
-                        const py = ray.y + ray.normal[1];
-                        const pz = ray.z + ray.normal[2];
+                // ★ 13. Place Block in World
+                if (itemDef && itemDef.blockId) {
+                    const px = ray.x + ray.normal[0];
+                    const py = ray.y + ray.normal[1];
+                    const pz = ray.z + ray.normal[2];
 
-                        // Check collision with player
-                        const placeBox = new AABB(px, py, pz, px + 1, py + 1, pz + 1);
-                        const playerBox = new AABB(
-                            this.player.x - 0.3, this.player.y, this.player.z - 0.3,
-                            this.player.x + 0.3, this.player.y + 1.8, this.player.z + 0.3
-                        );
+                    const targetBlockDef = window.BLOCK_BY_ID[itemDef.blockId];
+                    const placeBox = new AABB(px, py, pz, px + 1, py + 1, pz + 1);
+                    const playerBox = new AABB(
+                        this.player.x - 0.26, this.player.y + 0.05, this.player.z - 0.26,
+                        this.player.x + 0.26, this.player.y + 1.72, this.player.z + 0.26
+                    );
 
-                        if (!placeBox.intersects(playerBox) || !window.BLOCK_BY_ID[itemDef.blockId]?.solid) {
-                            this.world.setBlock(px, py, pz, itemDef.blockId);
-                            this.sound.playPlace();
-                            this.player.swingHand();
-                            if (this.player.gameMode !== 'creative') {
-                                this.inventory.consumeSelectedItem(1);
-                            }
+                    if (!placeBox.intersects(playerBox) || !targetBlockDef?.solid) {
+                        this.world.setBlock(px, py, pz, itemDef.blockId);
+                        this.sound.playPlace();
+                        this.player.swingHand();
+                        if (this.player.gameMode !== 'creative') {
+                            this.inventory.consumeSelectedItem(1);
+                        }
+                        // If Sand or Gravel placed in mid-air, apply gravity
+                        if (itemDef.blockId === B.SAND.id || itemDef.blockId === B.GRAVEL.id) {
+                            this.world.applyGravityAbove(px, py - 1, pz);
                         }
                     }
                 }
@@ -608,7 +908,7 @@
                             speed = toolDef.speed || 2.0;
                         }
 
-                        this.player.miningProgress += (dt * speed) / (def.hardness || 1.0);
+                        this.player.miningProgress += (dt * speed) / Math.max(0.15, def.hardness || 1.0);
 
                         // Update Crack Overlay Box (0 to 9 stages)
                         const stage = Math.min(9, Math.floor(this.player.miningProgress * 10));
@@ -631,8 +931,10 @@
                             this.player.miningProgress = 0;
                             this.crackBox.visible = false;
 
-                            // Drop item
-                            if (def.drop) {
+                            // Drop item (Gravel has 35% chance to drop Flint for crafting Flint & Steel!)
+                            if (bId === window.BLOCKS.GRAVEL.id && Math.random() < 0.35) {
+                                this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 'flint');
+                            } else if (def.drop) {
                                 this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, def.drop);
                             }
                             this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0x888888, 8);
@@ -650,7 +952,6 @@
         // UI Slot Interactions
         handleSlotClick(type, index) {
             try {
-                let targetSlot = null;
                 let targetArr = null;
 
                 if (type === 'player') targetArr = this.inventory.slots;
@@ -749,7 +1050,18 @@
         }
 
         pickCreativeItem(itemKey) {
-            this.inventory.addItem(itemKey, 64);
+            const def = window.ITEMS[itemKey];
+            const maxStack = def?.maxStack || 64;
+            const added = this.inventory.addItem(itemKey, maxStack);
+            if (!added) {
+                this.inventory.slots[this.inventory.selectedHotbarIndex] = { item: itemKey, count: maxStack };
+            }
+            for (let i = 0; i < 9; i++) {
+                if (this.inventory.slots[i] && this.inventory.slots[i].item === itemKey) {
+                    this.inventory.selectedHotbarIndex = i;
+                    break;
+                }
+            }
             this.sound.playPop();
             this.ui.renderHUD();
         }
