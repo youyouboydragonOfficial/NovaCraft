@@ -49,7 +49,19 @@
         WAYGATE: { id: 43, name: 'Waygate Teleporter', nameJa: 'ウェイゲート(テレポート)', solid: true, hardness: 4.0, tool: 'pickaxe', drop: 'waygate', light: 0.7, sound: 'metal', custom: true, isInteractive: true },
         CLUSTER_TNT: { id: 44, name: 'Cluster TNT', nameJa: 'クラスターTNT爆薬', solid: true, hardness: 0.0, drop: 'cluster_tnt', sound: 'grass', custom: true, isClusterTnt: true },
         SPEED_PAD: { id: 45, name: 'Speed Boost Pad', nameJa: 'スピード加速パッド', solid: true, hardness: 1.0, drop: 'speed_pad', light: 0.5, sound: 'metal', custom: true, speedBoost: 2.2 },
-        JUMP_PAD: { id: 46, name: 'Jump Pad', nameJa: 'スーパージャンプ台', solid: true, hardness: 1.0, drop: 'jump_pad', light: 0.5, sound: 'metal', custom: true, jumpBoost: 18.0 }
+        JUMP_PAD: { id: 46, name: 'Jump Pad', nameJa: 'スーパージャンプ台', solid: true, hardness: 1.0, drop: 'jump_pad', light: 0.5, sound: 'metal', custom: true, jumpBoost: 18.0 },
+
+        // ★ ディープダーク・古代都市 & 建造物ブロック (Minecraft 1.19+ Authentic)
+        DEEPSLATE: { id: 47, name: 'Deepslate', nameJa: '深層岩', solid: true, hardness: 3.0, tool: 'pickaxe', drop: 'deepslate', sound: 'stone' },
+        DEEPSLATE_BRICKS: { id: 48, name: 'Deepslate Bricks', nameJa: '深層岩レンガ', solid: true, hardness: 3.5, tool: 'pickaxe', drop: 'deepslate_bricks', sound: 'stone' },
+        DEEPSLATE_TILES: { id: 49, name: 'Deepslate Tiles', nameJa: '深層岩タイル', solid: true, hardness: 3.5, tool: 'pickaxe', drop: 'deepslate_tiles', sound: 'stone' },
+        REINFORCED_DEEPSLATE: { id: 50, name: 'Reinforced Deepslate', nameJa: '強化された深層岩', solid: true, hardness: 55.0, tool: 'pickaxe', drop: null, sound: 'stone', light: 0.4 },
+        SCULK: { id: 51, name: 'Sculk', nameJa: 'スカルク', solid: true, hardness: 0.2, tool: 'shovel', drop: 'sculk', sound: 'grass', light: 0.2 },
+        SCULK_CATALYST: { id: 52, name: 'Sculk Catalyst', nameJa: 'スカルクカタリスト', solid: true, hardness: 3.0, tool: 'shovel', drop: 'sculk_catalyst', sound: 'stone', light: 0.6 },
+        SCULK_SHRIEKER: { id: 53, name: 'Sculk Shrieker', nameJa: 'スカルクシュリーカー', solid: true, hardness: 3.0, tool: 'shovel', drop: 'sculk_shrieker', sound: 'stone', light: 0.5 },
+        SOUL_LANTERN: { id: 54, name: 'Soul Lantern', nameJa: 'ソウルランタン', solid: false, transparent: true, hardness: 0.5, drop: 'soul_lantern', light: 1.0, sound: 'metal' },
+        STONE_BRICKS: { id: 55, name: 'Stone Bricks', nameJa: '石レンガ', solid: true, hardness: 1.5, tool: 'pickaxe', drop: 'stone_bricks', sound: 'stone' },
+        GLOWSTONE: { id: 56, name: 'Glowstone', nameJa: 'グロウストーン', solid: true, hardness: 0.3, tool: 'pickaxe', drop: 'glowstone', light: 1.0, sound: 'glass' }
     };
 
     // Mapping by block ID
@@ -72,12 +84,18 @@
         redstone: { name: 'Redstone', nameJa: 'レッドストーンダスト', category: 'materials', maxStack: 64 },
         lapis: { name: 'Lapis Lazuli', nameJa: 'ラピスラズリ', category: 'materials', maxStack: 64 },
         snowball: { name: 'Snowball', nameJa: '雪玉', category: 'materials', maxStack: 16 },
+        bone: { name: 'Bone', nameJa: '骨', category: 'materials', maxStack: 64 },
+        gunpowder: { name: 'Gunpowder', nameJa: '火薬', category: 'materials', maxStack: 64 },
+        feather: { name: 'Feather', nameJa: '羽根', category: 'materials', maxStack: 64 },
+        wool: { name: 'White Wool', nameJa: '白色の羊毛', category: 'materials', maxStack: 64 },
+        echo_shard: { name: 'Echo Shard', nameJa: '残響の欠片', category: 'materials', maxStack: 64, desc: '古代都市のチェストに眠るディープダークの結晶' },
         
         // 食べ物
         apple: { name: 'Apple', nameJa: 'リンゴ', category: 'food', foodRestore: 4, saturation: 2.4, maxStack: 64 },
         bread: { name: 'Bread', nameJa: 'パン', category: 'food', foodRestore: 5, saturation: 6.0, maxStack: 64 },
         raw_beef: { name: 'Raw Beef', nameJa: '生の牛肉', category: 'food', foodRestore: 3, saturation: 1.8, maxStack: 64 },
         cooked_beef: { name: 'Steak', nameJa: 'ステーキ(焼肉)', category: 'food', foodRestore: 8, saturation: 12.8, maxStack: 64 },
+        rotten_flesh: { name: 'Rotten Flesh', nameJa: '腐った肉', category: 'food', foodRestore: 2, saturation: 0.8, maxStack: 64 },
         golden_apple: { name: 'Golden Apple', nameJa: '金のリンゴ', category: 'food', foodRestore: 10, heal: 10, maxStack: 64 },
 
         // ツール (Pickaxes)

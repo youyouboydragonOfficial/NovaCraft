@@ -119,19 +119,53 @@
             return chunk.getBlock(lx, wy, lz);
         }
 
-        // Always finds authentic surface Y with zero chance of failure
+        // Always finds authentic terrain surface Y (ignoring tree leaves/logs so players & mobs never snap to tree tops!)
         getHighestSolidY(wx, wz) {
             const { cx, cz, lx, lz } = this.worldToChunkCoords(wx, wz);
             let chunk = this.getOrCreateChunk(cx, cz);
+            const B = window.BLOCKS;
 
             for (let y = CHUNK_HEIGHT - 1; y >= 2; y--) {
                 const bId = chunk.getBlock(lx, y, lz);
+                if (
+                    bId === B.OAK_LEAVES.id ||
+                    bId === B.BIRCH_LEAVES.id ||
+                    bId === B.OAK_LOG.id ||
+                    bId === B.BIRCH_LOG.id ||
+                    bId === B.CACTUS.id
+                ) {
+                    continue;
+                }
                 const def = window.BLOCK_BY_ID[bId];
                 if (def && def.solid && !def.liquid) {
                     return y;
                 }
             }
             return 22; // Safe sea level fallback
+        }
+
+        // Finds walkable solid ground at or below startY (essential for underground Ancient City, caves & walking under trees)
+        getGroundYBelow(wx, startY, wz) {
+            const { cx, cz, lx, lz } = this.worldToChunkCoords(wx, wz);
+            let chunk = this.getOrCreateChunk(cx, cz);
+            const B = window.BLOCKS;
+            const maxScanY = Math.min(CHUNK_HEIGHT - 3, Math.max(3, Math.floor(startY)));
+
+            for (let y = maxScanY; y >= 2; y--) {
+                const bId = chunk.getBlock(lx, y, lz);
+                if (bId === B.OAK_LEAVES.id || bId === B.BIRCH_LEAVES.id) continue;
+                const def = window.BLOCK_BY_ID[bId];
+                if (def && def.solid && !def.liquid) {
+                    const above1 = chunk.getBlock(lx, y + 1, lz);
+                    const above2 = chunk.getBlock(lx, y + 2, lz);
+                    const def1 = window.BLOCK_BY_ID[above1];
+                    const def2 = window.BLOCK_BY_ID[above2];
+                    if ((!def1 || !def1.solid) && (!def2 || !def2.solid)) {
+                        return y;
+                    }
+                }
+            }
+            return this.getHighestSolidY(wx, wz);
         }
 
         setBlock(wx, wy, wz, blockId) {
@@ -185,11 +219,20 @@
             }
         }
 
+        isAncientCityChunk(cx, cz) {
+            // Primary Ancient City spans chunks (1..2, 1..2) -> world X: 16..47, Z: 16..47
+            // Plus repeating Ancient Cities every 10 chunks across the infinite world
+            const modX = ((cx % 10) + 10) % 10;
+            const modZ = ((cz % 10) + 10) % 10;
+            return (modX === 1 || modX === 2) && (modZ === 1 || modZ === 2);
+        }
+
         generateChunkTerrain(chunk) {
             if (chunk.generated) return;
             const B = window.BLOCKS;
             const cx = chunk.cx;
             const cz = chunk.cz;
+            const surfaceHeights = new Uint8Array(CHUNK_SIZE_X * CHUNK_SIZE_Z);
 
             for (let lx = 0; lx < CHUNK_SIZE_X; lx++) {
                 for (let lz = 0; lz < CHUNK_SIZE_Z; lz++) {
@@ -210,8 +253,10 @@
                     height += Math.floor(n1 + n2 + n3);
 
                     if (isMountains) height += Math.floor(Math.abs(this.noiseTerrain.noise2D(wx * 0.02, wz * 0.02)) * 18);
+                    if (height < 20 && cx >= 0 && cx <= 2 && cz >= 0 && cz <= 2) height = 22; // Keep spawn & Ancient City roof solid
                     if (height < 6) height = 6;
                     if (height >= CHUNK_HEIGHT - 6) height = CHUNK_HEIGHT - 7;
+                    surfaceHeights[ lz * CHUNK_SIZE_X + lx ] = height;
 
                     // Fill column
                     for (let y = 0; y < CHUNK_HEIGHT; y++) {
@@ -240,8 +285,8 @@
                             } else if (y >= height - 3) {
                                 chunk.setBlock(lx, y, lz, isDesert ? B.SAND.id : B.DIRT.id);
                             } else {
-                                // Underground Stone and Ores
-                                let block = B.STONE.id;
+                                // Underground Stone, Deepslate (Y < 15) and Ores
+                                let block = (y < 15 && B.DEEPSLATE) ? B.DEEPSLATE.id : B.STONE.id;
                                 const oreNoise = Math.sin(wx * 3.7 + y * 7.1 + wz * 5.3);
 
                                 if (y < 12 && oreNoise > 0.85) {
@@ -264,9 +309,11 @@
                         }
                     }
 
-                    // Trees & Foliage Generation
+                    // Trees & Foliage Generation (Skip over village house footprint or Ancient City entrance)
+                    const isHouseArea = (cx === 0 && cz === 1 && lx >= 3 && lx <= 11 && lz >= 3 && lz <= 11);
+                    const isStairEntrance = (cx === 1 && cz === 0 && lx >= 0 && lx <= 6 && lz >= 10 && lz <= 15);
                     const surfaceBlock = chunk.getBlock(lx, height, lz);
-                    if (surfaceBlock === B.GRASS.id && height > WATER_LEVEL) {
+                    if (!isHouseArea && !isStairEntrance && surfaceBlock === B.GRASS.id && height > WATER_LEVEL) {
                         const treeNoise = Math.sin(wx * 12.3 + wz * 43.1);
                         if (treeNoise > 0.82 && lx >= 2 && lx <= CHUNK_SIZE_X - 3 && lz >= 2 && lz <= CHUNK_SIZE_Z - 3) {
                             this.generateTree(chunk, lx, height + 1, lz, treeNoise > 0.92 ? 'birch' : 'oak');
@@ -282,7 +329,211 @@
                     }
                 }
             }
+
+            // ★ Generate Authentic Underground ANCIENT CITY (Deep Dark Y = 5..16)
+            if (this.isAncientCityChunk(cx, cz)) {
+                this.generateAncientCityInChunk(chunk);
+            }
+
+            // ★ Generate Surface Entrance Portal Ruin & Grand Staircase down to the Ancient City (in chunk 1, 0)
+            if (cx === 1 && cz === 0) {
+                this.generateAncientCityEntranceStairs(chunk, surfaceHeights);
+            }
+
+            // ★ Generate Authentic Minecraft Village House near spawn (in chunk 0, 1)
+            if (cx === 0 && cz === 1) {
+                this.generateVillageHouse(chunk, surfaceHeights);
+            }
+
             chunk.generated = true;
+        }
+
+        // ★ Authentic Minecraft 1.19+ Ancient City (Deep Dark) Generator
+        generateAncientCityInChunk(chunk) {
+            const B = window.BLOCKS;
+            const cx = chunk.cx;
+            const cz = chunk.cz;
+
+            for (let lx = 0; lx < CHUNK_SIZE_X; lx++) {
+                for (let lz = 0; lz < CHUNK_SIZE_Z; lz++) {
+                    const wx = cx * CHUNK_SIZE_X + lx;
+                    const wz = cz * CHUNK_SIZE_Z + lz;
+
+                    // Local coordinates within the 32x32 Ancient City (0..31, 0..31), center at (16, 16) -> world (32, 32)
+                    const ax = ((wx - 16) % 160 + 160) % 160;
+                    const az = ((wz - 16) % 160 + 160) % 160;
+                    if (ax >= 32 || az >= 32) continue;
+
+                    // 1. Solid Deepslate Ceiling & Subfloor
+                    chunk.setBlock(lx, 4, lz, B.DEEPSLATE.id);
+                    chunk.setBlock(lx, 17, lz, B.DEEPSLATE.id);
+
+                    // 2. Carve out the grand underground hall (Y = 6..16)
+                    for (let y = 6; y <= 16; y++) {
+                        chunk.setBlock(lx, y, lz, B.AIR.id);
+                    }
+
+                    // 3. Ancient City Floor (Y = 5): Corridors of Deepslate Tiles/Bricks + Sculk infestation
+                    const isMainCorridor = (Math.abs(ax - 16) <= 3 || Math.abs(az - 16) <= 3);
+                    const sculkPattern = Math.sin(wx * 0.45 + wz * 0.35) + Math.cos(wx * 0.25 - wz * 0.5);
+                    if (isMainCorridor) {
+                        chunk.setBlock(lx, 5, lz, (ax + az) % 2 === 0 ? B.DEEPSLATE_TILES.id : B.DEEPSLATE_BRICKS.id);
+                    } else if (sculkPattern > 0.45) {
+                        chunk.setBlock(lx, 5, lz, B.SCULK.id);
+                        if (sculkPattern > 1.45 && (ax + az) % 5 === 0) {
+                            chunk.setBlock(lx, 5, lz, B.SCULK_CATALYST.id);
+                        }
+                    } else {
+                        chunk.setBlock(lx, 5, lz, B.DEEPSLATE_BRICKS.id);
+                    }
+
+                    // 4. Perimeter Walls with Archways
+                    if (ax === 0 || ax === 31 || az === 0 || az === 31) {
+                        const isEntranceArch = (az === 0 && ax >= 2 && ax <= 5);
+                        if (!isEntranceArch) {
+                            for (let y = 6; y <= 16; y++) {
+                                chunk.setBlock(lx, y, lz, (y % 4 === 0) ? B.DEEPSLATE_TILES.id : B.DEEPSLATE_BRICKS.id);
+                            }
+                        }
+                        continue;
+                    }
+
+                    // 5. Colonnade Pillars & Soul Lanterns along the Grand Corridors
+                    const isPillar = ((ax === 6 || ax === 12 || ax === 20 || ax === 26) && (az === 6 || az === 12 || az === 20 || az === 26));
+                    if (isPillar) {
+                        for (let y = 6; y <= 16; y++) {
+                            chunk.setBlock(lx, y, lz, (y === 6 || y === 15) ? B.DEEPSLATE_TILES.id : B.DEEPSLATE_BRICKS.id);
+                        }
+                        chunk.setBlock(lx, 10, lz, B.SCULK_CATALYST.id);
+                    }
+                    // Soul Lanterns next to pillars & walkways
+                    if ((ax === 7 || ax === 13 || ax === 19 || ax === 25) && (az === 6 || az === 12 || az === 20 || az === 26)) {
+                        chunk.setBlock(lx, 6, lz, B.SOUL_LANTERN.id);
+                    }
+
+                    // 6. Central Warden Altar & Giant Reinforced Deepslate Portal (ax = 11..21, az = 14..18)
+                    if (ax >= 10 && ax <= 22 && az >= 13 && az <= 19) {
+                        // Raised Deepslate Tile Altar Platform at Y = 6
+                        chunk.setBlock(lx, 6, lz, B.DEEPSLATE_TILES.id);
+
+                        // Giant Reinforced Deepslate Portal Frame at az === 16, ax = 11..21, Y = 7..14
+                        if (az === 16 && ax >= 11 && ax <= 21) {
+                            // Bottom & Top horizontal bars (Y = 7, 8 and Y = 14) + Left & Right vertical pillars (ax = 11, 12 and ax = 20, 21)
+                            if (ax === 11 || ax === 21) {
+                                for (let y = 7; y <= 14; y++) {
+                                    chunk.setBlock(lx, y, lz, B.REINFORCED_DEEPSLATE.id);
+                                }
+                            } else {
+                                chunk.setBlock(lx, 7, lz, B.REINFORCED_DEEPSLATE.id);
+                                chunk.setBlock(lx, 14, lz, B.REINFORCED_DEEPSLATE.id);
+                            }
+                        }
+
+                        // Sculk Shriekers & Soul Lanterns guarding the Altar
+                        if ((ax === 11 || ax === 21) && (az === 14 || az === 18)) {
+                            chunk.setBlock(lx, 7, lz, B.SOUL_LANTERN.id);
+                        }
+                        if (ax === 16 && (az === 14 || az === 18)) {
+                            chunk.setBlock(lx, 7, lz, B.SCULK_SHRIEKER.id);
+                        }
+                    }
+
+                    // 7. Ancient City Loot Shrines (Left & Right Wings)
+                    if ((ax === 4 || ax === 27) && az === 16) {
+                        chunk.setBlock(lx, 6, lz, B.DEEPSLATE_TILES.id);
+                        chunk.setBlock(lx, 7, lz, B.CHEST.id);
+                    }
+                    if ((ax === 4 || ax === 27) && (az === 15 || az === 17)) {
+                        chunk.setBlock(lx, 6, lz, B.SCULK_CATALYST.id);
+                        chunk.setBlock(lx, 7, lz, B.SOUL_LANTERN.id);
+                    }
+                }
+            }
+        }
+
+        // ★ Surface Ruin Gate & Staircase leading from (wx=18..21, wz=10..15) down into the Ancient City
+        generateAncientCityEntranceStairs(chunk, surfaceHeights) {
+            const B = window.BLOCKS;
+            const baseH = surfaceHeights[10 * CHUNK_SIZE_X + 3] || 23;
+
+            // Surface Deepslate Ruin Archway at lx = 2..5 (wx = 18..21), lz = 9..10 (wz = 9..10)
+            for (let lx = 2; lx <= 5; lx++) {
+                for (let y = baseH + 1; y <= baseH + 4; y++) {
+                    if (lx === 2 || lx === 5 || y === baseH + 4) {
+                        chunk.setBlock(lx, y, 9, y === baseH + 4 ? B.REINFORCED_DEEPSLATE.id : B.DEEPSLATE_BRICKS.id);
+                    } else {
+                        chunk.setBlock(lx, y, 9, B.AIR.id);
+                    }
+                }
+            }
+            chunk.setBlock(2, baseH + 2, 8, B.SOUL_LANTERN.id);
+            chunk.setBlock(5, baseH + 2, 8, B.SOUL_LANTERN.id);
+
+            // Stepped Tunnel descending from lz = 10..15 into the Ancient City North Arch
+            for (let lz = 10; lz < CHUNK_SIZE_Z; lz++) {
+                const stepIndex = lz - 10; // 0..5
+                const floorY = Math.max(6, baseH - stepIndex * 3);
+                for (let lx = 2; lx <= 5; lx++) {
+                    chunk.setBlock(lx, floorY, lz, B.DEEPSLATE_TILES.id);
+                    for (let y = floorY + 1; y <= baseH + 3; y++) {
+                        chunk.setBlock(lx, y, lz, B.AIR.id);
+                    }
+                    if (lx === 2 || lx === 5) {
+                        chunk.setBlock(lx, floorY + 1, lz, B.DEEPSLATE_BRICKS.id);
+                        if (lz % 2 === 0) chunk.setBlock(lx, floorY + 2, lz, B.SOUL_LANTERN.id);
+                    }
+                }
+            }
+        }
+
+        // ★ Authentic Minecraft Village House near spawn (chunk 0, 1 -> wx = 4..10, wz = 20..26)
+        generateVillageHouse(chunk, surfaceHeights) {
+            const B = window.BLOCKS;
+            const baseH = surfaceHeights[6 * CHUNK_SIZE_X + 6] || 23;
+            if (baseH <= WATER_LEVEL) return;
+
+            for (let lx = 4; lx <= 10; lx++) {
+                for (let lz = 4; lz <= 10; lz++) {
+                    // Foundation & Oak Plank Floor
+                    for (let y = baseH - 2; y < baseH; y++) {
+                        chunk.setBlock(lx, y, lz, B.COBBLESTONE.id);
+                    }
+                    chunk.setBlock(lx, baseH, lz, B.OAK_PLANKS.id);
+
+                    // Clear interior & above
+                    for (let y = baseH + 1; y <= baseH + 6; y++) {
+                        chunk.setBlock(lx, y, lz, B.AIR.id);
+                    }
+
+                    const isCorner = (lx === 4 || lx === 10) && (lz === 4 || lz === 10);
+                    const isWall = (lx === 4 || lx === 10 || lz === 4 || lz === 10);
+                    const isDoor = (lz === 4 && lx === 7);
+
+                    if (isWall) {
+                        for (let y = baseH + 1; y <= baseH + 3; y++) {
+                            if (isDoor && y <= baseH + 2) {
+                                chunk.setBlock(lx, y, lz, B.AIR.id);
+                            } else if (isCorner) {
+                                chunk.setBlock(lx, y, lz, B.OAK_LOG.id);
+                            } else if (y === baseH + 2 && (lx === 7 || lz === 7)) {
+                                chunk.setBlock(lx, y, lz, B.GLASS.id);
+                            } else {
+                                chunk.setBlock(lx, y, lz, B.OAK_PLANKS.id);
+                            }
+                        }
+                    }
+
+                    // Pitched Roof
+                    const distEdge = Math.min(lx - 4, 10 - lx, lz - 4, 10 - lz);
+                    chunk.setBlock(lx, baseH + 4 + Math.min(2, distEdge), lz, distEdge === 0 ? B.COBBLESTONE.id : B.OAK_PLANKS.id);
+                }
+            }
+
+            // Interior Furnishings (Crafting Table, Furnace, Chest, Torch)
+            chunk.setBlock(5, baseH + 1, 9, B.CRAFTING_TABLE.id);
+            chunk.setBlock(6, baseH + 1, 9, B.FURNACE.id);
+            chunk.setBlock(9, baseH + 1, 9, B.CHEST.id);
+            chunk.setBlock(7, baseH + 3, 7, B.TORCH.id);
         }
 
         generateTree(chunk, x, y, z, type = 'oak') {

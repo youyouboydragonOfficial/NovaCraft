@@ -612,6 +612,124 @@
                     this.drawPixel('cloud', x, y, 255, 255, 255, 210);
                 }
             }
+
+            // ★ 41. DEEPSLATE & DEEPSLATE BRICKS & DEEPSLATE TILES
+            const rngDeep = createRNG(8881);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const n = rngDeep();
+                    // Deepslate: dark layered slate
+                    const dv = Math.floor(42 + ((x + y * 2) % 4 === 0 ? -8 : 0) + n * 18);
+                    this.drawPixel('deepslate', x, y, dv, dv + 2, dv + 6);
+
+                    // Deepslate Bricks
+                    const isBrickMortar = (y % 8 === 0) || (y < 8 && x % 8 === 0) || (y >= 8 && (x + 4) % 8 === 0);
+                    const bv = isBrickMortar ? 24 : Math.floor(52 + n * 18);
+                    this.drawPixel('deepslate_bricks', x, y, bv, bv + 3, bv + 7);
+
+                    // Deepslate Tiles
+                    const isTileMortar = (y % 4 === 0) || ((Math.floor(y / 4) % 2 === 0) ? (x % 4 === 0) : ((x + 2) % 4 === 0));
+                    const tv = isTileMortar ? 20 : Math.floor(44 + n * 14);
+                    this.drawPixel('deepslate_tiles', x, y, tv, tv + 2, tv + 5);
+                }
+            }
+
+            // ★ 42. REINFORCED DEEPSLATE (Ancient City Central Portal Frame)
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const isFrame = (x <= 2 || x >= 13 || y <= 2 || y >= 13);
+                    const isBoneTrim = (x === 0 || x === 15 || y === 0 || y === 15 || x === 3 || x === 12 || y === 3 || y === 12);
+                    const isCyanRunes = ((x === 7 || x === 8) && (y >= 4 && y <= 11)) || ((y === 7 || y === 8) && (x >= 4 && x <= 11));
+                    if (isBoneTrim) {
+                        this.drawPixel('reinforced_deepslate_top', x, y, 185, 195, 175);
+                        this.drawPixel('reinforced_deepslate_side', x, y, 175, 185, 165);
+                    } else if (isCyanRunes) {
+                        this.drawPixel('reinforced_deepslate_top', x, y, 45, 210, 220);
+                        this.drawPixel('reinforced_deepslate_side', x, y, 40, 195, 205);
+                    } else if (isFrame) {
+                        this.drawPixel('reinforced_deepslate_top', x, y, 55, 65, 68);
+                        this.drawPixel('reinforced_deepslate_side', x, y, 48, 58, 62);
+                    } else {
+                        this.drawPixel('reinforced_deepslate_top', x, y, 28, 34, 40);
+                        this.drawPixel('reinforced_deepslate_side', x, y, 28, 34, 40);
+                    }
+                }
+            }
+
+            // ★ 43. SCULK, SCULK CATALYST, SCULK SHRIEKER
+            const rngSculk = createRNG(9912);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const n = rngSculk();
+                    const isStar = (n > 0.86);
+                    const isPulse = (n > 0.72 && n <= 0.86);
+                    if (isStar) {
+                        this.drawPixel('sculk', x, y, 40, 225, 235); // Bright cyan sculk sensor dot
+                    } else if (isPulse) {
+                        this.drawPixel('sculk', x, y, 15, 125, 145); // Teal vein
+                    } else {
+                        const sv = Math.floor(10 + n * 14);
+                        this.drawPixel('sculk', x, y, sv, sv + 14, sv + 24); // Deep dark navy-black
+                    }
+
+                    // Sculk Catalyst Side (Bone base + sculk top)
+                    if (y >= 9) {
+                        const bv = (x % 3 === 0) ? 165 : 205;
+                        this.drawPixel('sculk_catalyst_side', x, y, bv, bv - 5, bv - 20);
+                    } else {
+                        this.drawPixel('sculk_catalyst_side', x, y, isStar ? 40 : 14, isStar ? 225 : 30, isStar ? 235 : 42);
+                    }
+                    // Sculk Catalyst Top (Glowing soul bloom)
+                    const dist = Math.sqrt((x - 7.5) * (x - 7.5) + (y - 7.5) * (y - 7.5));
+                    if (dist < 4.5) {
+                        this.drawPixel('sculk_catalyst_top', x, y, 45, 230, 240);
+                    } else {
+                        this.drawPixel('sculk_catalyst_top', x, y, 16, 35, 48);
+                    }
+
+                    // Sculk Shrieker
+                    const isHorn = (y < 6 && (x <= 3 || x >= 12));
+                    const isSoulCore = (x >= 5 && x <= 10 && y >= 5 && y <= 10);
+                    if (isHorn) {
+                        this.drawPixel('sculk_shrieker_side', x, y, 215, 215, 195);
+                    } else if (isSoulCore) {
+                        this.drawPixel('sculk_shrieker_side', x, y, 35, 210, 235);
+                    } else {
+                        this.drawPixel('sculk_shrieker_side', x, y, 15, 32, 44);
+                    }
+                    this.drawPixel('sculk_shrieker_top', x, y, dist < 5 ? 45 : 195, dist < 5 ? 225 : 195, dist < 5 ? 240 : 175);
+                }
+            }
+
+            // ★ 44. SOUL LANTERN, STONE BRICKS, GLOWSTONE
+            const rngGlow = createRNG(6543);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    // Soul Lantern
+                    if (x >= 4 && x <= 11 && y >= 4 && y <= 14) {
+                        const isIronFrame = (x === 4 || x === 11 || y === 4 || y === 14);
+                        if (isIronFrame) {
+                            this.drawPixel('soul_lantern', x, y, 55, 65, 75, 255);
+                        } else {
+                            this.drawPixel('soul_lantern', x, y, 70, 235, 255, 255); // Bright soul fire cyan
+                        }
+                    } else if (x >= 7 && x <= 8 && y >= 1 && y <= 3) {
+                        this.drawPixel('soul_lantern', x, y, 65, 70, 80, 255); // Chain
+                    } else {
+                        this.drawPixel('soul_lantern', x, y, 0, 0, 0, 0);
+                    }
+
+                    // Stone Bricks
+                    const isSBMortar = (y % 8 === 0) || (y < 8 && x % 8 === 0) || (y >= 8 && (x + 4) % 8 === 0);
+                    const n = rngGlow();
+                    const sbv = isSBMortar ? 75 : Math.floor(130 + n * 25);
+                    this.drawPixel('stone_bricks', x, y, sbv, sbv, sbv);
+
+                    // Glowstone
+                    const gv = n > 0.65 ? 255 : (n > 0.3 ? 215 : 160);
+                    this.drawPixel('glowstone', x, y, gv, Math.floor(gv * 0.85), Math.floor(gv * 0.45));
+                }
+            }
         }
 
         // Returns UV mapping object for a block type
@@ -713,6 +831,28 @@
                     return { top: 'speed_pad', bottom: 'stone', side: 'stone' };
                 case B.JUMP_PAD.id:
                     return { top: 'jump_pad', bottom: 'stone', side: 'stone' };
+
+                // ★ ディープダーク・古代都市ブロック
+                case B.DEEPSLATE?.id:
+                    return { all: 'deepslate' };
+                case B.DEEPSLATE_BRICKS?.id:
+                    return { all: 'deepslate_bricks' };
+                case B.DEEPSLATE_TILES?.id:
+                    return { all: 'deepslate_tiles' };
+                case B.REINFORCED_DEEPSLATE?.id:
+                    return { top: 'reinforced_deepslate_top', bottom: 'deepslate', side: 'reinforced_deepslate_side' };
+                case B.SCULK?.id:
+                    return { all: 'sculk' };
+                case B.SCULK_CATALYST?.id:
+                    return { top: 'sculk_catalyst_top', bottom: 'sculk', side: 'sculk_catalyst_side' };
+                case B.SCULK_SHRIEKER?.id:
+                    return { top: 'sculk_shrieker_top', bottom: 'sculk', side: 'sculk_shrieker_side' };
+                case B.SOUL_LANTERN?.id:
+                    return { all: 'soul_lantern' };
+                case B.STONE_BRICKS?.id:
+                    return { all: 'stone_bricks' };
+                case B.GLOWSTONE?.id:
+                    return { all: 'glowstone' };
 
                 default:
                     return { all: 'stone' };

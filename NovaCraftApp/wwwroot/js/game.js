@@ -287,11 +287,22 @@
                 this.isPointerLocked = (document.pointerLockElement === dom);
                 if (this.isPointerLocked) {
                     this.pointerLockAcquired = true;
-                } else if (this.gameStarted && this.pointerLockAcquired && this.inventory.openMode === 'none' && !this.player.isDead) {
-                    // Only open pause modal if user was actively playing and pointer was truly locked
-                    this.pointerLockAcquired = false;
-                    this.ui.openModal('pause');
+                } else {
+                    // Always clear held keys & mouse buttons when pointer lock exits so Space/WASD never get stuck!
+                    this.input.keys = {};
+                    this.input.mouseButtons = {};
+                    this.input.spaceJustPressed = false;
+                    if (this.gameStarted && this.pointerLockAcquired && this.inventory.openMode === 'none' && !this.player.isDead) {
+                        this.pointerLockAcquired = false;
+                        this.ui.openModal('pause');
+                    }
                 }
+            });
+
+            window.addEventListener('blur', () => {
+                this.input.keys = {};
+                this.input.mouseButtons = {};
+                this.input.spaceJustPressed = false;
             });
 
             document.addEventListener('mousemove', (e) => {
@@ -752,6 +763,39 @@
             this.ui.renderHUD();
         }
 
+        toggleGameMode() {
+            const newMode = (this.player.gameMode === 'creative') ? 'survival' : 'creative';
+            this.player.setGameMode(newMode);
+            this.input.keys = {};
+            this.input.mouseButtons = {};
+            this.input.spaceJustPressed = false;
+            const toggleBtn = document.getElementById('pause-mode-btn');
+            if (toggleBtn) {
+                toggleBtn.textContent = `ゲームモード切替 (現在: ${newMode === 'creative' ? 'クリエイティブ' : 'サバイバル'})`;
+            }
+            this.ui.renderHUD();
+            this.ui.addChatMessage(`ゲームモードを「${newMode === 'creative' ? 'クリエイティブ' : 'サバイバル'}」に切り替えました。`, '#55ff55');
+            return newMode;
+        }
+
+        teleportToAncientCity() {
+            this.world.updateChunksAround(32, 32, 3);
+            this.player.x = 32.5;
+            this.player.y = 7.2;
+            this.player.z = 22.5; // Facing the giant central Reinforced Deepslate Portal at Z=32
+            this.player.yaw = Math.PI;
+            this.player.pitch = 0.05;
+            this.player.velocity.set(0, 0, 0);
+            this.player.fallDistance = 0;
+            this.input.keys = {};
+            if (this.mobManager && this.mobManager.spawnWardenIfNeeded) {
+                this.mobManager.spawnWardenIfNeeded(32.5, 7.0, 32.5);
+            }
+            this.sound.playWarp();
+            this.ui.closeModal();
+            this.ui.addChatMessage('🏛️ ディープダーク「古代都市 (Ancient City)」の祭壇前へ移動しました！', '#44eeff');
+        }
+
         respawnPlayer() {
             this.player.isDead = false;
             this.player.health = 20;
@@ -817,13 +861,23 @@
                 this.sunLight.intensity = 1.15;
             }
 
-            // Underwater Atmospheric Effects
+            // Underwater or Deep Dark (Ancient City) Atmospheric Effects
             if (this.player.headInWater) {
                 const waterColor = new THREE.Color(0x15457a);
                 this.scene.background = waterColor;
                 this.scene.fog.color = waterColor;
                 this.scene.fog.density = 0.055;
                 this.ambientLight.intensity = 0.45;
+            } else if (this.player.y < 16.0) {
+                // Deep Dark / Ancient City Atmosphere (Mystical Soul-Cyan & Dark Slate)
+                const deepDarkColor = new THREE.Color(0x06121c);
+                this.scene.background = deepDarkColor;
+                this.scene.fog.color = deepDarkColor;
+                this.scene.fog.density = 0.022;
+                this.ambientLight.color.setHex(0x75c8e8);
+                this.ambientLight.intensity = 0.55;
+                this.sunLight.color.setHex(0x44bbee);
+                this.sunLight.intensity = 0.45;
             } else {
                 this.scene.fog.density = 0.012;
                 this.scene.background = skyColor;

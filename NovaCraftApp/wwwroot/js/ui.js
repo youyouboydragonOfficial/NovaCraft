@@ -182,6 +182,11 @@
         openModal(mode) {
             this.inventory.openMode = mode;
             this.modalOverlay.style.display = 'flex';
+            if (this.game && this.game.input) {
+                this.game.input.keys = {};
+                this.game.input.mouseButtons = {};
+                this.game.input.spaceJustPressed = false;
+            }
             document.exitPointerLock();
 
             // Hide all sub-modals first
@@ -222,6 +227,11 @@
 
         closeModal() {
             this.inventory.openMode = 'none';
+            if (this.game && this.game.input) {
+                this.game.input.keys = {};
+                this.game.input.mouseButtons = {};
+                this.game.input.spaceJustPressed = false;
+            }
             if (this.modalOverlay) this.modalOverlay.style.display = 'none';
             if (this.titleModal) this.titleModal.style.display = 'none';
             if (this.inventoryModal) this.inventoryModal.style.display = 'none';
@@ -243,10 +253,7 @@
             this.hasSelectedMode = true;
             this.game.gameStarted = true;
             console.log("selectGameMode executing:", mode);
-            this.player.gameMode = mode;
-            if (mode === 'creative') {
-                this.player.flying = false;
-            }
+            this.player.setGameMode(mode);
 
             // Always start game in bright, clear morning daylight (~8:30 AM)!
             this.game.timeOfDay = 0.22;
@@ -408,14 +415,15 @@
 
             if (cmd === '/gamemode') {
                 const mode = parts[1]?.toLowerCase();
-                if (mode === 'creative' || mode === 'c') {
-                    this.player.gameMode = 'creative';
+                if (mode === 'creative' || mode === 'c' || mode === '1') {
+                    this.player.setGameMode('creative');
                     this.addChatMessage('ゲームモードを「クリエイティブ」に変更しました。', '#55ff55');
-                } else if (mode === 'survival' || mode === 's') {
-                    this.player.gameMode = 'survival';
-                    this.player.flying = false;
+                } else if (mode === 'survival' || mode === 's' || mode === '0') {
+                    this.player.setGameMode('survival');
                     this.addChatMessage('ゲームモードを「サバイバル」に変更しました。', '#55ff55');
                 }
+            } else if (cmd === '/ancient' || cmd === '/locate') {
+                this.game.teleportToAncientCity();
             } else if (cmd === '/time') {
                 if (parts[1] === 'set') {
                     if (parts[2] === 'day') {
@@ -443,10 +451,11 @@
                     this.player.x = tx;
                     this.player.y = ty;
                     this.player.z = tz;
+                    this.player.velocity.set(0, 0, 0);
                     this.addChatMessage(`座標 (${tx}, ${ty}, ${tz}) にテレポートしました。`, '#55ff55');
                 }
             } else if (cmd === '/help') {
-                this.addChatMessage('利用可能なコマンド: /gamemode [creative|survival], /time set [day|night], /give [item] [count], /tp [x] [y] [z]', '#aaffaa');
+                this.addChatMessage('利用可能なコマンド: /gamemode [creative|survival], /ancient (古代都市へ移動), /time set [day|night], /give [item] [count], /tp [x] [y] [z]', '#aaffaa');
             } else {
                 this.addChatMessage(`不明なコマンドです: ${cmd} (/help で一覧表示)`, '#ff5555');
             }

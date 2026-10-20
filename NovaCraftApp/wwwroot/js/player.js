@@ -71,8 +71,25 @@
             this.health = Math.min(this.maxHealth, this.health + amount);
         }
 
+        setGameMode(mode) {
+            this.gameMode = mode;
+            if (mode !== 'creative') {
+                this.flying = false;
+                if (this.velocity.y > 0) this.velocity.y = 0;
+            }
+            this.fallDistance = 0;
+        }
+
         update(dt, input, hotbarItem) {
             if (this.isDead) return;
+
+            // ★ Absolute guarantee: Survival mode NEVER flies! Switching from Creative -> Survival immediately drops player to the ground.
+            if (this.gameMode !== 'creative') {
+                if (this.flying) {
+                    this.flying = false;
+                    if (this.velocity.y > 0) this.velocity.y = 0;
+                }
+            }
 
             // Check equipped items for custom perks
             const hasGravityBoots = (hotbarItem && hotbarItem.item === 'gravity_boots');
@@ -179,9 +196,9 @@
             }
 
             // Vertical movement
-            if (this.flying) {
+            if (this.flying && this.gameMode === 'creative') {
                 if (input.keys['Space']) this.velocity.y = speed;
-                else if (input.keys['ShiftLeft']) this.velocity.y = -speed;
+                else if (input.keys['ShiftLeft'] || input.keys['ShiftRight']) this.velocity.y = -speed;
                 else this.velocity.y = 0;
             } else {
                 // Gravity & jumping
@@ -202,26 +219,13 @@
             // Apply physics
             this.physics.moveEntity(this, this.velocity, dt);
 
-            // ★ Surface Safety Anchor: Absolute guarantee against falling into void or underground clipping
-            const surfaceY = this.world.getHighestSolidY(Math.floor(this.x), Math.floor(this.z));
-            if (this.y < 2.0 || isNaN(this.y)) {
-                // Falling into void (Y < 2): instantly salvage to surface
+            // ★ Void Safety Anchor ONLY (Does NOT teleport player upward when under trees, roofs, or inside Underground Ancient City!)
+            if (this.y < 0.5 || isNaN(this.y)) {
+                const surfaceY = this.world.getHighestSolidY(Math.floor(this.x), Math.floor(this.z));
                 this.y = surfaceY + 1.8;
                 this.velocity.set(0, 0, 0);
                 this.fallDistance = 0;
                 this.onGround = true;
-            } else if (!this.flying && this.y < surfaceY - 1.2) {
-                // Check if accidentally clipped into underground solid terrain
-                const feetB = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 0.1), Math.floor(this.z));
-                const bodyB = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 0.9), Math.floor(this.z));
-                const defF = window.BLOCK_BY_ID[feetB];
-                const defB = window.BLOCK_BY_ID[bodyB];
-                if ((defF && defF.solid) || (defB && defB.solid)) {
-                    this.y = surfaceY + 1.8;
-                    this.velocity.set(0, 0, 0);
-                    this.fallDistance = 0;
-                    this.onGround = true;
-                }
             }
 
             // Survival mechanics: Hunger & Oxygen
