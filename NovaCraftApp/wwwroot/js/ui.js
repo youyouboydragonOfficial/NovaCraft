@@ -152,80 +152,95 @@
             `;
         }
 
-        renderHUD() {
-            // 1. Health Hearts (10 hearts = 20 HP)
-            if (this.player.gameMode === 'survival') {
-                this.heartsContainer.style.display = 'flex';
-                this.foodContainer.style.display = 'flex';
+        renderHUD(force = false) {
+            // 1 & 2. Health Hearts & Food Icons (Only update DOM when values change!)
+            const hp = Math.ceil(this.player.health);
+            const food = Math.ceil(this.player.food);
+            const vitalsSig = `${this.player.gameMode}:${hp}:${food}`;
+            if (force || vitalsSig !== this.lastVitalsSig) {
+                this.lastVitalsSig = vitalsSig;
+                if (this.player.gameMode === 'survival') {
+                    this.heartsContainer.style.display = 'flex';
+                    this.foodContainer.style.display = 'flex';
 
-                let heartsHTML = '';
-                const hp = Math.ceil(this.player.health);
-                for (let i = 0; i < 10; i++) {
-                    const heartVal = hp - i * 2;
-                    if (heartVal >= 2) heartsHTML += '<span class="heart full">❤</span>';
-                    else if (heartVal === 1) heartsHTML += '<span class="heart half">❤</span>';
-                    else heartsHTML += '<span class="heart empty">♡</span>';
-                }
-                this.heartsContainer.innerHTML = heartsHTML;
+                    let heartsHTML = '';
+                    for (let i = 0; i < 10; i++) {
+                        const heartVal = hp - i * 2;
+                        if (heartVal >= 2) heartsHTML += '<span class="heart full">❤</span>';
+                        else if (heartVal === 1) heartsHTML += '<span class="heart half">❤</span>';
+                        else heartsHTML += '<span class="heart empty">♡</span>';
+                    }
+                    this.heartsContainer.innerHTML = heartsHTML;
 
-                // 2. Food Icons (10 drumsticks = 20 Food)
-                let foodHTML = '';
-                const food = Math.ceil(this.player.food);
-                for (let i = 0; i < 10; i++) {
-                    const fVal = food - i * 2;
-                    if (fVal >= 2) foodHTML += '<span class="food full">🍗</span>';
-                    else if (fVal === 1) foodHTML += '<span class="food half">🍗</span>';
-                    else foodHTML += '<span class="food empty">🦴</span>';
+                    let foodHTML = '';
+                    for (let i = 0; i < 10; i++) {
+                        const fVal = food - i * 2;
+                        if (fVal >= 2) foodHTML += '<span class="food full">🍗</span>';
+                        else if (fVal === 1) foodHTML += '<span class="food half">🍗</span>';
+                        else foodHTML += '<span class="food empty">🦴</span>';
+                    }
+                    this.foodContainer.innerHTML = foodHTML;
+                } else {
+                    // Creative Mode: hide hearts & food like real Minecraft
+                    this.heartsContainer.style.display = 'none';
+                    this.foodContainer.style.display = 'none';
                 }
-                this.foodContainer.innerHTML = foodHTML;
-            } else {
-                // Creative Mode: hide hearts & food like real Minecraft
-                this.heartsContainer.style.display = 'none';
-                this.foodContainer.style.display = 'none';
             }
 
-            // 3. Oxygen bubbles (Only if head is in water or recovering breath)
-            if ((this.player.headInWater || this.player.oxygen < this.player.maxOxygen) && this.player.gameMode === 'survival') {
-                this.oxygenContainer.style.display = 'flex';
-                let oxyHTML = '';
-                const bubbleCount = Math.ceil((this.player.oxygen / this.player.maxOxygen) * 10);
-                for (let i = 0; i < 10; i++) {
-                    oxyHTML += (i < bubbleCount) ? '<span class="bubble">🫧</span>' : '';
+            // 3. Oxygen bubbles (Only update when bubble count changes)
+            const showOxy = (this.player.headInWater || this.player.oxygen < this.player.maxOxygen) && this.player.gameMode === 'survival';
+            const bubbleCount = showOxy ? Math.ceil((this.player.oxygen / this.player.maxOxygen) * 10) : -1;
+            if (force || bubbleCount !== this.lastBubbleCount) {
+                this.lastBubbleCount = bubbleCount;
+                if (showOxy) {
+                    this.oxygenContainer.style.display = 'flex';
+                    let oxyHTML = '';
+                    for (let i = 0; i < 10; i++) {
+                        oxyHTML += (i < bubbleCount) ? '<span class="bubble">🫧</span>' : '';
+                    }
+                    this.oxygenContainer.innerHTML = oxyHTML;
+                } else {
+                    this.oxygenContainer.style.display = 'none';
                 }
-                this.oxygenContainer.innerHTML = oxyHTML;
-            } else {
-                this.oxygenContainer.style.display = 'none';
             }
 
-            // 4. Hotbar Slots (With 3D Isometric Icon & Clear Japanese Name Label)
-            let hotbarHTML = '';
+            // 4. Hotbar Slots (Only rebuild DOM when hotbar items or selected index changes!)
+            let hotbarSig = `${this.inventory.selectedHotbarIndex}|`;
             for (let i = 0; i < 9; i++) {
-                const item = this.inventory.slots[i];
-                const isSelected = (i === this.inventory.selectedHotbarIndex);
-                hotbarHTML += this.renderSlot(item, '', isSelected, `window.game.inventory.selectedHotbarIndex = ${i}; window.game.ui.renderHUD();`);
+                const s = this.inventory.slots[i];
+                hotbarSig += s ? `${s.item}:${s.count},` : '_,';
             }
-            this.hotbarContainer.innerHTML = hotbarHTML;
-
-            // 5. Always-Clear Tooltip for Selected Item & Action Guide
-            const curItem = this.inventory.getSelectedItem();
-            if (curItem) {
-                const def = window.ITEMS[curItem.item];
-                const itemName = def?.nameJa || def?.name || curItem.item;
-                let actionHint = '【左クリック / 右クリック: 使用】';
-                if (curItem.item === 'flint_and_steel' || curItem.item === 'fire_charge') {
-                    actionHint = '🔥 【左クリック / 右クリック: TNT点火・ブロックに炎着火・黒曜石ポータル起動】';
-                } else if (curItem.item === 'tnt' || curItem.item === 'cluster_tnt') {
-                    actionHint = '💣 【左クリック / 右クリック: TNT設置 ➔ 着火石でクリックして点火！】';
-                } else if (def?.blockId) {
-                    actionHint = '🧱 【左クリック / 右クリック: ブロック設置 ｜ Shift+左クリック: 破壊】';
-                } else if (def?.toolType || curItem.item.includes('sword') || curItem.item.includes('pickaxe')) {
-                    actionHint = '⛏️ 【左クリック: 採掘・破壊・攻撃】';
+            if (force || hotbarSig !== this.lastHotbarSig) {
+                this.lastHotbarSig = hotbarSig;
+                let hotbarHTML = '';
+                for (let i = 0; i < 9; i++) {
+                    const item = this.inventory.slots[i];
+                    const isSelected = (i === this.inventory.selectedHotbarIndex);
+                    hotbarHTML += this.renderSlot(item, '', isSelected, `window.game.inventory.selectedHotbarIndex = ${i}; window.game.ui.renderHUD(true);`);
                 }
-                this.itemTooltip.textContent = `${itemName}  ${actionHint}`;
-                this.itemTooltip.style.opacity = '1';
-            } else {
-                this.itemTooltip.textContent = '✋ 素手 【左クリック: 採掘・破壊・攻撃 ｜ Eキー: アイテムカタログ】';
-                this.itemTooltip.style.opacity = '0.85';
+                this.hotbarContainer.innerHTML = hotbarHTML;
+
+                // 5. Always-Clear Tooltip for Selected Item & Action Guide
+                const curItem = this.inventory.getSelectedItem();
+                if (curItem) {
+                    const def = window.ITEMS[curItem.item];
+                    const itemName = def?.nameJa || def?.name || curItem.item;
+                    let actionHint = '【左クリック / 右クリック: 使用】';
+                    if (curItem.item === 'flint_and_steel' || curItem.item === 'fire_charge') {
+                        actionHint = '🔥 【左クリック / 右クリック: TNT点火・ブロックに炎着火・黒曜石ポータル起動】';
+                    } else if (curItem.item === 'tnt' || curItem.item === 'cluster_tnt') {
+                        actionHint = '💣 【左クリック / 右クリック: TNT設置 ➔ 着火石でクリックして点火！】';
+                    } else if (def?.blockId) {
+                        actionHint = '🧱 【左クリック / 右クリック: ブロック設置 ｜ Shift+左クリック: 破壊】';
+                    } else if (def?.toolType || curItem.item.includes('sword') || curItem.item.includes('pickaxe')) {
+                        actionHint = '⛏️ 【左クリック: 採掘・破壊・攻撃】';
+                    }
+                    this.itemTooltip.textContent = `${itemName}  ${actionHint}`;
+                    this.itemTooltip.style.opacity = '1';
+                } else {
+                    this.itemTooltip.textContent = '✋ 素手 【左クリック: 採掘・破壊・攻撃 ｜ Eキー: アイテムカタログ】';
+                    this.itemTooltip.style.opacity = '0.85';
+                }
             }
 
             // 6. Debug Info (F3)

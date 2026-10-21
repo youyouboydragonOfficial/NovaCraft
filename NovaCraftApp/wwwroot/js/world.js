@@ -753,12 +753,16 @@
                 }
             }
 
-            // 3. Wider radius chunk generation
+            // 3. Wider radius chunk generation (Incremental: rebuild at most 1 outer chunk per frame for smooth 60 FPS)
+            let outerRebuilt = 0;
             for (let dx = -loadRadius; dx <= loadRadius; dx++) {
                 for (let dz = -loadRadius; dz <= loadRadius; dz++) {
+                    if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) continue;
                     const chunk = this.getOrCreateChunk(cx + dx, cz + dz);
                     if (chunk.isDirty) {
                         this.rebuildChunkMesh(chunk);
+                        outerRebuilt++;
+                        if (outerRebuilt >= 1) return;
                     }
                 }
             }
