@@ -344,12 +344,16 @@
         }
 
         // Raycast against voxel world (Hits solid & targetable blocks like torches, ladders, saplings, fire)
-        raycast(maxDistance = 5.5) {
+        raycast(maxDistance = 7.5, customDir = null) {
             const origin = new THREE.Vector3(this.x, this.y + this.eyeHeight, this.z);
             const dir = new THREE.Vector3();
-            this.camera.getWorldDirection(dir);
+            if (customDir) {
+                dir.copy(customDir).normalize();
+            } else {
+                this.camera.getWorldDirection(dir);
+            }
 
-            const step = 0.05;
+            const step = 0.04;
             let current = origin.clone();
             let prevBlock = {
                 x: Math.floor(origin.x),
@@ -358,7 +362,7 @@
             };
             const B = window.BLOCKS;
 
-            for (let d = 0.05; d < maxDistance; d += step) {
+            for (let d = 0.04; d < maxDistance; d += step) {
                 current.addScaledVector(dir, step);
                 const bx = Math.floor(current.x);
                 const by = Math.floor(current.y);
@@ -396,10 +400,14 @@
         }
 
         // Raycast specifically including Water and Lava (for Bucket scooping)
-        raycastFluid(maxDistance = 5.0) {
+        raycastFluid(maxDistance = 7.5, customDir = null) {
             const origin = new THREE.Vector3(this.x, this.y + this.eyeHeight, this.z);
             const dir = new THREE.Vector3();
-            this.camera.getWorldDirection(dir);
+            if (customDir) {
+                dir.copy(customDir).normalize();
+            } else {
+                this.camera.getWorldDirection(dir);
+            }
 
             const step = 0.05;
             let current = origin.clone();

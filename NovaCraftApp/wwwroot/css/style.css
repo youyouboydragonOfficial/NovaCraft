@@ -107,13 +107,14 @@ body, html {
     border-top-color: #fff;
     border-left-color: #fff;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-    padding: 2px;
+    padding: 3px;
+    pointer-events: auto;
 }
 
 .slot {
-    width: 40px;
-    height: 40px;
-    background: #8b8b8b;
+    width: 48px;
+    height: 48px;
+    background: #76767e;
     border: 2px solid #373737;
     border-top-color: #373737;
     border-left-color: #373737;
@@ -121,6 +122,7 @@ body, html {
     border-bottom-color: #ffffff;
     position: relative;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     cursor: pointer;
@@ -128,43 +130,63 @@ body, html {
 }
 
 .slot:hover {
-    background: #a0a0a0;
+    background: #9696a2;
 }
 
 .slot.selected {
-    border: 3px solid #ffffff;
-    box-shadow: 0 0 6px #ffffff;
+    border: 3px solid #ffee44;
+    background: #8e8e9c;
+    box-shadow: 0 0 8px #ffee44;
     transform: scale(1.08);
     z-index: 2;
 }
 
 .slot.custom-item {
     border-color: #bb44ff;
-    background: #6a3388;
+    background: #5c2d78;
+}
+
+.slot.featured-item {
+    border-color: #ffaa22;
+    background: #6e4422;
 }
 
 .slot .item-icon {
-    width: 28px;
-    height: 28px;
+    width: 34px;
+    height: 34px;
     image-rendering: pixelated;
     pointer-events: none;
 }
 
+.slot .slot-label {
+    font-size: 9px;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+    line-height: 10px;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    pointer-events: none;
+    margin-top: -1px;
+}
+
 .item-icon-small {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     image-rendering: pixelated;
     pointer-events: none;
 }
 
 .slot .count {
     position: absolute;
-    bottom: 2px;
-    right: 3px;
-    font-size: 12px;
+    bottom: 1px;
+    right: 2px;
+    font-size: 11px;
     font-weight: bold;
-    color: #ffffff;
-    text-shadow: 1px 1px 0 #000;
+    color: #ffff77;
+    text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
     pointer-events: none;
 }
 
@@ -174,6 +196,7 @@ body, html {
     left: 2px;
     font-size: 10px;
     color: #ffdd44;
+    text-shadow: 1px 1px 0 #000;
 }
 
 /* Tooltip */
@@ -183,8 +206,9 @@ body, html {
     font-weight: bold;
     text-shadow: 1px 1px 2px #000;
     margin-bottom: 8px;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 3px 8px;
+    background: rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 4px 12px;
     border-radius: 4px;
     transition: opacity 0.2s;
 }
@@ -250,15 +274,15 @@ body, html {
 
 .crafting-grid-2x2 {
     display: grid;
-    grid-template-columns: repeat(2, 42px);
-    grid-template-rows: repeat(2, 42px);
+    grid-template-columns: repeat(2, 50px);
+    grid-template-rows: repeat(2, 50px);
     gap: 2px;
 }
 
 .crafting-grid-3x3 {
     display: grid;
-    grid-template-columns: repeat(3, 42px);
-    grid-template-rows: repeat(3, 42px);
+    grid-template-columns: repeat(3, 50px);
+    grid-template-rows: repeat(3, 50px);
     gap: 2px;
 }
 
@@ -270,15 +294,15 @@ body, html {
 
 .inventory-grid-9x3 {
     display: grid;
-    grid-template-columns: repeat(9, 42px);
-    grid-template-rows: repeat(3, 42px);
+    grid-template-columns: repeat(9, 50px);
+    grid-template-rows: repeat(3, 50px);
     gap: 2px;
     margin-bottom: 12px;
 }
 
 .hotbar-grid-9x1 {
     display: grid;
-    grid-template-columns: repeat(9, 42px);
+    grid-template-columns: repeat(9, 50px);
     gap: 2px;
 }
 
@@ -323,16 +347,52 @@ body, html {
 }
 
 /* Creative Catalog */
+.catalog-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.catalog-tab-btn {
+    background: #6c6c74;
+    border: 2px solid #ffffff;
+    border-right-color: #333;
+    border-bottom-color: #333;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 5px 10px;
+    cursor: pointer;
+    text-shadow: 1px 1px 0 #000;
+}
+.catalog-tab-btn.active {
+    background: #d87a22;
+    color: #ffff88;
+}
 .creative-catalog-grid {
     display: grid;
-    grid-template-columns: repeat(9, 44px);
-    max-height: 280px;
+    grid-template-columns: repeat(8, 68px);
+    max-height: 340px;
     overflow-y: auto;
-    gap: 2px;
-    background: #8b8b8b;
-    padding: 6px;
-    border: 2px solid #373737;
+    gap: 4px;
+    background: #5e5e66;
+    padding: 8px;
+    border: 2px solid #2b2b30;
     margin-bottom: 12px;
+}
+.creative-catalog-grid .slot {
+    width: 66px;
+    height: 58px;
+    padding: 2px;
+}
+.creative-catalog-grid .slot .item-icon {
+    width: 36px;
+    height: 36px;
+}
+.creative-catalog-grid .slot .slot-label {
+    font-size: 10px;
+    line-height: 12px;
+    margin-top: 2px;
 }
 
 /* Buttons */

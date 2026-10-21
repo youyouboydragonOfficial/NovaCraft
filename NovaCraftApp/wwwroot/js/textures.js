@@ -1047,194 +1047,324 @@
             uvAttr.needsUpdate = true;
         }
 
-        // Generate and cache pixel-art DataURL for any item (Blocks, Tools, Items, Custom)
+        // Generate and cache crisp 64x64 3D Isometric Block & Outlined Pixel-Art Item Icons
         getItemIconDataURL(itemKey) {
             if (!this.iconCache) this.iconCache = {};
             if (this.iconCache[itemKey]) return this.iconCache[itemKey];
 
             const c = document.createElement('canvas');
-            c.width = 16;
-            c.height = 16;
+            c.width = 64;
+            c.height = 64;
             const ctx = c.getContext('2d');
             ctx.imageSmoothingEnabled = false;
 
             const itemDef = window.ITEMS[itemKey];
+            const blockDef = itemDef?.blockId ? window.BLOCK_BY_ID[itemDef.blockId] : null;
+            const isFlatBlock = blockDef && (
+                blockDef.crossModel ||
+                itemKey === 'torch' ||
+                itemKey === 'healing_torch' ||
+                itemKey === 'soul_lantern' ||
+                itemKey === 'ladder' ||
+                itemKey === 'fire' ||
+                itemKey === 'nether_portal'
+            );
 
-            if (itemDef?.blockId) {
-                // Draw Block texture from Atlas
+            if (itemDef?.blockId && !isFlatBlock) {
+                // ★ Authentic 3D Isometric Cube Icon for Blocks!
                 const uvMap = this.getBlockUVs(itemDef.blockId);
-                const slotName = uvMap.side || uvMap.all || uvMap.top || 'stone';
-                const slot = TEXTURE_SLOTS[slotName] ?? 0;
-                const sx = (slot % ATLAS_SLOTS_X) * TEX_SIZE;
-                const sy = Math.floor(slot / ATLAS_SLOTS_X) * TEX_SIZE;
-                ctx.drawImage(this.canvas, sx, sy, 16, 16, 0, 0, 16, 16);
-            } else {
-                // Draw 2D Minecraft Pixel Art Item
-                let matColor = '#ffffff';
-                if (itemKey.includes('wooden') || itemKey.includes('wood')) matColor = '#9c6b3e';
-                else if (itemKey.includes('stone') || itemKey.includes('cobble')) matColor = '#8a8a8a';
-                else if (itemKey.includes('iron')) matColor = '#d8d8d8';
-                else if (itemKey.includes('gold')) matColor = '#fcee4b';
-                else if (itemKey.includes('diamond')) matColor = '#4eeded';
-                else if (itemKey.includes('netherite')) matColor = '#4d444f';
-                else if (itemKey.includes('astral')) matColor = '#df44ff';
-                else if (itemKey.includes('laser')) matColor = '#33eeff';
+                const topName = uvMap.top || uvMap.all || uvMap.side || 'stone';
+                const leftName = uvMap.front || uvMap.side || uvMap.all || 'stone';
+                const rightName = uvMap.side || uvMap.all || uvMap.front || 'stone';
 
-                if (itemKey === 'flint_and_steel') {
-                    // Iconic Flint & Steel (Steel C-striker on left + Dark grey Flint on right)
-                    ctx.fillStyle = '#d4d8de'; // Steel striker
-                    ctx.fillRect(2, 3, 5, 2);
-                    ctx.fillRect(2, 5, 2, 5);
-                    ctx.fillRect(2, 9, 5, 2);
-                    ctx.fillStyle = '#36363c'; // Dark flint shard
-                    ctx.fillRect(8, 7, 5, 6);
-                    ctx.fillStyle = '#585862';
-                    ctx.fillRect(9, 8, 3, 3);
-                } else if (itemKey === 'flint') {
-                    ctx.fillStyle = '#2d2d32';
-                    ctx.fillRect(5, 3, 6, 10);
-                    ctx.fillRect(4, 6, 8, 6);
-                    ctx.fillStyle = '#5a5a64';
-                    ctx.fillRect(6, 5, 3, 4);
-                } else if (itemKey === 'fire_charge') {
-                    ctx.fillStyle = '#332211';
-                    ctx.fillRect(3, 3, 10, 10);
-                    ctx.fillStyle = '#ff6600';
-                    ctx.fillRect(4, 4, 8, 8);
-                    ctx.fillStyle = '#ffee44';
-                    ctx.fillRect(6, 6, 4, 4);
-                } else if (itemKey.includes('bucket')) {
-                    ctx.fillStyle = '#b8bcc2';
-                    ctx.fillRect(3, 5, 10, 7);
-                    ctx.fillRect(5, 12, 6, 2);
-                    if (itemKey === 'water_bucket') {
-                        ctx.fillStyle = '#2b6ef2';
-                        ctx.fillRect(4, 5, 8, 3);
-                    } else if (itemKey === 'lava_bucket') {
-                        ctx.fillStyle = '#ff5511';
-                        ctx.fillRect(4, 5, 8, 3);
-                    } else {
-                        ctx.fillStyle = '#55585e';
-                        ctx.fillRect(4, 5, 8, 3);
-                    }
-                } else if (itemKey === 'bow') {
-                    ctx.fillStyle = '#8b5a2b';
-                    ctx.fillRect(4, 2, 2, 3);
-                    ctx.fillRect(3, 5, 2, 6);
-                    ctx.fillRect(4, 11, 2, 3);
-                    ctx.fillStyle = '#dcdcdc'; // Bowstring
-                    ctx.fillRect(6, 3, 1, 10);
-                } else if (itemKey === 'arrow') {
-                    ctx.fillStyle = '#8b5a2b';
-                    for (let i = 3; i < 12; i++) ctx.fillRect(i, 15 - i, 1, 1);
-                    ctx.fillStyle = '#d8d8d8'; // Arrowhead
-                    ctx.fillRect(10, 2, 3, 3);
-                    ctx.fillStyle = '#ffffff'; // Feather fletching
-                    ctx.fillRect(2, 11, 3, 3);
-                } else if (itemKey === 'shears') {
-                    ctx.fillStyle = '#8b4513';
-                    ctx.fillRect(3, 10, 3, 3); ctx.fillRect(7, 11, 3, 3);
-                    ctx.fillStyle = '#dcdcdc';
-                    ctx.fillRect(6, 4, 2, 6); ctx.fillRect(9, 6, 4, 2);
-                } else if (itemKey === 'ender_pearl') {
-                    ctx.fillStyle = '#0e4d45';
-                    ctx.fillRect(4, 4, 8, 8);
-                    ctx.fillStyle = '#25b59c';
-                    ctx.fillRect(5, 5, 6, 6);
-                    ctx.fillStyle = '#99ffee';
-                    ctx.fillRect(6, 6, 2, 2);
-                } else if (itemKey === 'spyglass') {
-                    ctx.fillStyle = '#d47a38';
-                    ctx.fillRect(4, 9, 4, 4);
-                    ctx.fillRect(7, 6, 4, 4);
-                    ctx.fillStyle = '#9d55d4';
-                    ctx.fillRect(10, 3, 3, 3);
-                } else if (itemKey === 'compass' || itemKey === 'clock') {
-                    ctx.fillStyle = (itemKey === 'clock') ? '#fcee4b' : '#a8adb5';
-                    ctx.fillRect(3, 3, 10, 10);
-                    ctx.fillStyle = '#222222';
-                    ctx.fillRect(5, 5, 6, 6);
-                    ctx.fillStyle = (itemKey === 'clock') ? '#44aaff' : '#ff2222';
-                    ctx.fillRect(7, 5, 2, 4);
-                } else if (itemKey.includes('pickaxe') || itemKey.includes('drill')) {
-                    // Pickaxe
-                    ctx.fillStyle = '#6d4c28'; // Stick
-                    for (let i = 4; i < 13; i++) ctx.fillRect(i, 16 - i, 1, 1);
-                    ctx.fillStyle = matColor; // Head
-                    ctx.fillRect(2, 2, 8, 2);
-                    ctx.fillRect(2, 4, 2, 4);
-                    ctx.fillRect(8, 2, 4, 2);
-                } else if (itemKey.includes('sword') || itemKey.includes('blade')) {
-                    // Sword
-                    ctx.fillStyle = '#6d4c28'; // Handle
-                    ctx.fillRect(3, 12, 2, 2);
-                    ctx.fillStyle = '#444444'; // Guard
-                    ctx.fillRect(4, 10, 4, 1);
-                    ctx.fillRect(3, 11, 1, 4);
-                    ctx.fillStyle = matColor; // Blade
-                    for (let i = 0; i < 7; i++) {
-                        ctx.fillRect(6 + i, 8 - i, 2, 2);
-                    }
-                } else if (itemKey.includes('axe')) {
-                    // Axe
-                    ctx.fillStyle = '#6d4c28';
-                    for (let i = 4; i < 13; i++) ctx.fillRect(i, 16 - i, 1, 1);
-                    ctx.fillStyle = matColor;
-                    ctx.fillRect(2, 2, 6, 5);
-                } else if (itemKey.includes('shovel')) {
-                    // Shovel
-                    ctx.fillStyle = '#6d4c28';
-                    for (let i = 4; i < 13; i++) ctx.fillRect(i, 16 - i, 1, 1);
-                    ctx.fillStyle = matColor;
-                    ctx.fillRect(9, 2, 5, 5);
-                } else if (itemKey.includes('apple')) {
-                    // Apple
-                    ctx.fillStyle = itemKey.includes('enchanted') ? '#d866ff' : (itemKey.includes('gold') ? '#fcee4b' : '#d82222');
-                    ctx.fillRect(4, 4, 8, 8);
-                    ctx.fillStyle = '#449922'; // Leaf
-                    ctx.fillRect(7, 2, 2, 2);
-                } else if (itemKey.includes('beef') || itemKey.includes('pork') || itemKey.includes('chicken') || itemKey.includes('flesh') || itemKey.includes('fish')) {
-                    ctx.fillStyle = itemKey.includes('cooked') ? '#8c4625' : (itemKey.includes('flesh') ? '#6b4428' : '#d45555');
-                    ctx.fillRect(3, 4, 10, 8);
+                const getSlotCoords = (name) => {
+                    const s = TEXTURE_SLOTS[name] ?? 0;
+                    return {
+                        sx: (s % ATLAS_SLOTS_X) * TEX_SIZE,
+                        sy: Math.floor(s / ATLAS_SLOTS_X) * TEX_SIZE
+                    };
+                };
+                const topC = getSlotCoords(topName);
+                const leftC = getSlotCoords(leftName);
+                const rightC = getSlotCoords(rightName);
+
+                // 1. Top Diamond Face
+                ctx.save();
+                ctx.setTransform(1.5, 0.75, -1.5, 0.75, 32, 6);
+                ctx.drawImage(this.canvas, topC.sx, topC.sy, 16, 16, 0, 0, 16, 16);
+                ctx.restore();
+
+                // 2. Front-Left Face (Slightly shaded)
+                ctx.save();
+                ctx.setTransform(1.5, 0.75, 0, 1.65, 8, 18);
+                ctx.drawImage(this.canvas, leftC.sx, leftC.sy, 16, 16, 0, 0, 16, 16);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+                ctx.fillRect(0, 0, 16, 16);
+                ctx.restore();
+
+                // 3. Front-Right Face (Shaded for 3D depth)
+                ctx.save();
+                ctx.setTransform(1.5, -0.75, 0, 1.65, 32, 30);
+                ctx.drawImage(this.canvas, rightC.sx, rightC.sy, 16, 16, 0, 0, 16, 16);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+                ctx.fillRect(0, 0, 16, 16);
+                ctx.restore();
+
+                // 4. Crisp 3D Isometric Cube Outline & Inner Edges
+                ctx.strokeStyle = 'rgba(15, 15, 20, 0.85)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(32, 6);
+                ctx.lineTo(56, 18);
+                ctx.lineTo(56, 44.4);
+                ctx.lineTo(32, 56.4);
+                ctx.lineTo(8, 44.4);
+                ctx.lineTo(8, 18);
+                ctx.closePath();
+                ctx.stroke();
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(8, 18);
+                ctx.lineTo(32, 30);
+                ctx.lineTo(56, 18);
+                ctx.moveTo(32, 30);
+                ctx.lineTo(32, 56.4);
+                ctx.stroke();
+
+                // Extra bold badge for TNT so it's 100% unmistakable
+                if (itemKey === 'tnt' || itemKey === 'cluster_tnt') {
                     ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(11, 3, 2, 2);
-                } else if (itemKey.includes('bread') || itemKey.includes('potato') || itemKey.includes('pie') || itemKey.includes('cookie')) {
-                    ctx.fillStyle = '#c68a4c';
-                    ctx.fillRect(2, 6, 12, 5);
-                } else if (itemKey.includes('carrot') || itemKey.includes('melon')) {
-                    ctx.fillStyle = itemKey.includes('carrot') ? '#ff7711' : '#dd3333';
-                    ctx.fillRect(4, 4, 8, 8);
-                } else if (itemKey.includes('crystal') || itemKey.includes('diamond') || itemKey.includes('emerald') || itemKey.includes('shard')) {
-                    ctx.fillStyle = itemKey.includes('shard') ? '#22d8e8' : matColor;
-                    ctx.fillRect(6, 3, 4, 10);
-                    ctx.fillRect(4, 5, 8, 6);
-                } else if (itemKey.includes('ingot')) {
-                    ctx.fillStyle = matColor;
-                    ctx.fillRect(3, 7, 10, 4);
-                    ctx.fillRect(5, 5, 6, 2);
-                } else if (itemKey.includes('boots')) {
-                    ctx.fillStyle = matColor;
-                    ctx.fillRect(3, 6, 3, 6); ctx.fillRect(2, 10, 4, 2);
-                    ctx.fillRect(10, 6, 3, 6); ctx.fillRect(9, 10, 4, 2);
-                } else if (itemKey.includes('jetpack')) {
-                    ctx.fillStyle = '#666666';
-                    ctx.fillRect(3, 4, 4, 8);
-                    ctx.fillRect(9, 4, 4, 8);
-                    ctx.fillStyle = '#ff5500';
-                    ctx.fillRect(4, 12, 2, 3);
-                    ctx.fillRect(10, 12, 2, 3);
-                } else if (itemKey === 'bone' || itemKey === 'feather') {
-                    ctx.fillStyle = '#eeeeee';
-                    for (let i = 3; i < 13; i++) ctx.fillRect(i, 16 - i, 2, 2);
-                } else if (itemKey === 'gunpowder' || itemKey === 'bone_meal' || itemKey === 'coal' || itemKey === 'redstone') {
-                    ctx.fillStyle = itemKey === 'bone_meal' ? '#f2f2f2' : (itemKey === 'redstone' ? '#dd1111' : '#444444');
-                    ctx.fillRect(4, 5, 8, 7);
-                    ctx.fillRect(6, 3, 4, 2);
-                } else {
-                    // Generic material / stick
-                    ctx.fillStyle = '#8b5a2b';
-                    for (let i = 3; i < 13; i++) ctx.fillRect(i, 16 - i, 2, 2);
+                    ctx.fillRect(14, 26, 36, 14);
+                    ctx.strokeStyle = '#111111';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(14, 26, 36, 14);
+                    ctx.fillStyle = itemKey === 'cluster_tnt' ? '#9900cc' : '#dd1111';
+                    ctx.font = 'bold 13px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('TNT', 32, 33.5);
                 }
+            } else {
+                // Draw 16x16 Pixel Art onto offscreen buffer, then render with crisp dark outline at 64x64!
+                const off = document.createElement('canvas');
+                off.width = 16;
+                off.height = 16;
+                const octx = off.getContext('2d');
+                octx.imageSmoothingEnabled = false;
+
+                if (itemDef?.blockId && isFlatBlock) {
+                    const uvMap = this.getBlockUVs(itemDef.blockId);
+                    const slotName = uvMap.side || uvMap.all || uvMap.top || 'stone';
+                    const slot = TEXTURE_SLOTS[slotName] ?? 0;
+                    const sx = (slot % ATLAS_SLOTS_X) * TEX_SIZE;
+                    const sy = Math.floor(slot / ATLAS_SLOTS_X) * TEX_SIZE;
+                    octx.drawImage(this.canvas, sx, sy, 16, 16, 0, 0, 16, 16);
+                } else {
+                    let matColor = '#ffffff';
+                    if (itemKey.includes('wooden') || itemKey.includes('wood')) matColor = '#b57c42';
+                    else if (itemKey.includes('stone') || itemKey.includes('cobble')) matColor = '#9e9e9e';
+                    else if (itemKey.includes('iron')) matColor = '#eef2f6';
+                    else if (itemKey.includes('gold')) matColor = '#ffe838';
+                    else if (itemKey.includes('diamond')) matColor = '#44f5f5';
+                    else if (itemKey.includes('netherite')) matColor = '#5e5062';
+                    else if (itemKey.includes('astral')) matColor = '#e655ff';
+                    else if (itemKey.includes('laser')) matColor = '#33eeff';
+
+                    if (itemKey === 'flint_and_steel') {
+                        // ★ Unmistakable Flint & Steel (着火石): Steel C-Striker + Dark Flint + Bright Flame Spark!
+                        // 1. Bright Steel C-Striker (Left)
+                        octx.fillStyle = '#e8eef5';
+                        octx.fillRect(1, 3, 6, 2);
+                        octx.fillRect(1, 5, 2, 6);
+                        octx.fillRect(1, 11, 6, 2);
+                        octx.fillStyle = '#9aa6b5';
+                        octx.fillRect(2, 4, 4, 1);
+                        octx.fillRect(2, 11, 4, 1);
+
+                        // 2. Glossy Dark Flint Stone (Bottom-Right)
+                        octx.fillStyle = '#24242c';
+                        octx.fillRect(8, 7, 7, 7);
+                        octx.fillStyle = '#525264';
+                        octx.fillRect(9, 8, 4, 4);
+                        octx.fillStyle = '#8888a0';
+                        octx.fillRect(10, 8, 2, 2);
+
+                        // 3. Vivid Igniting Flame & Sparks (Top-Right / Center)
+                        octx.fillStyle = '#ff3300';
+                        octx.fillRect(7, 1, 5, 5);
+                        octx.fillStyle = '#ff9900';
+                        octx.fillRect(8, 2, 3, 4);
+                        octx.fillStyle = '#ffff44';
+                        octx.fillRect(9, 3, 2, 2);
+                    } else if (itemKey === 'flint') {
+                        octx.fillStyle = '#26262e';
+                        octx.fillRect(4, 2, 8, 12);
+                        octx.fillRect(3, 5, 10, 7);
+                        octx.fillStyle = '#5e5e6e';
+                        octx.fillRect(5, 4, 4, 5);
+                    } else if (itemKey === 'fire_charge') {
+                        octx.fillStyle = '#cc2200';
+                        octx.fillRect(2, 2, 12, 12);
+                        octx.fillStyle = '#ff7700';
+                        octx.fillRect(4, 4, 8, 8);
+                        octx.fillStyle = '#ffff55';
+                        octx.fillRect(6, 6, 4, 4);
+                    } else if (itemKey.includes('bucket')) {
+                        octx.fillStyle = '#d4d8e0';
+                        octx.fillRect(2, 4, 12, 8);
+                        octx.fillRect(4, 12, 8, 3);
+                        octx.fillStyle = '#8e94a0';
+                        octx.fillRect(3, 8, 10, 4);
+                        if (itemKey === 'water_bucket') {
+                            octx.fillStyle = '#1e78ff';
+                            octx.fillRect(3, 4, 10, 4);
+                            octx.fillStyle = '#77bbff';
+                            octx.fillRect(5, 5, 5, 2);
+                        } else if (itemKey === 'lava_bucket') {
+                            octx.fillStyle = '#ff4400';
+                            octx.fillRect(3, 4, 10, 4);
+                            octx.fillStyle = '#ffcc22';
+                            octx.fillRect(5, 5, 5, 2);
+                        } else {
+                            octx.fillStyle = '#444852';
+                            octx.fillRect(3, 4, 10, 3);
+                        }
+                    } else if (itemKey === 'bow') {
+                        octx.fillStyle = '#9c6228';
+                        octx.fillRect(4, 1, 3, 3);
+                        octx.fillRect(2, 4, 3, 8);
+                        octx.fillRect(4, 12, 3, 3);
+                        octx.fillStyle = '#ffffff'; // Bowstring
+                        octx.fillRect(7, 2, 2, 12);
+                        // Arrow loaded on bow for unmistakable silhouette
+                        octx.fillStyle = '#c88c4b';
+                        octx.fillRect(3, 7, 9, 2);
+                        octx.fillStyle = '#e8eef5';
+                        octx.fillRect(11, 6, 3, 4);
+                    } else if (itemKey === 'arrow') {
+                        octx.fillStyle = '#9c6228';
+                        for (let i = 3; i < 12; i++) octx.fillRect(i, 15 - i, 2, 2);
+                        octx.fillStyle = '#e8eef5'; // Arrowhead
+                        octx.fillRect(10, 2, 4, 4);
+                        octx.fillStyle = '#ffffff'; // Feather fletching
+                        octx.fillRect(2, 10, 4, 4);
+                    } else if (itemKey === 'shears') {
+                        octx.fillStyle = '#cc3322';
+                        octx.fillRect(2, 10, 4, 4); octx.fillRect(7, 11, 4, 4);
+                        octx.fillStyle = '#e8eef5';
+                        octx.fillRect(5, 3, 3, 7); octx.fillRect(8, 5, 6, 3);
+                    } else if (itemKey === 'ender_pearl') {
+                        octx.fillStyle = '#0e5248';
+                        octx.fillRect(3, 3, 10, 10);
+                        octx.fillStyle = '#22c8ab';
+                        octx.fillRect(4, 4, 8, 8);
+                        octx.fillStyle = '#aaffee';
+                        octx.fillRect(6, 5, 3, 3);
+                    } else if (itemKey === 'spyglass') {
+                        octx.fillStyle = '#e08035';
+                        octx.fillRect(3, 9, 5, 5);
+                        octx.fillRect(6, 6, 5, 5);
+                        octx.fillStyle = '#b055ff';
+                        octx.fillRect(10, 2, 4, 4);
+                    } else if (itemKey === 'compass' || itemKey === 'clock') {
+                        octx.fillStyle = (itemKey === 'clock') ? '#ffe838' : '#c8d0dc';
+                        octx.fillRect(2, 2, 12, 12);
+                        octx.fillStyle = '#22242a';
+                        octx.fillRect(4, 4, 8, 8);
+                        octx.fillStyle = (itemKey === 'clock') ? '#44bbff' : '#ff2222';
+                        octx.fillRect(7, 4, 2, 5);
+                    } else if (itemKey.includes('pickaxe') || itemKey.includes('drill')) {
+                        octx.fillStyle = '#8b5a2b'; // Stick
+                        for (let i = 3; i < 13; i++) octx.fillRect(i, 15 - i, 2, 2);
+                        octx.fillStyle = matColor; // Head
+                        octx.fillRect(2, 2, 10, 3);
+                        octx.fillRect(2, 5, 3, 5);
+                        octx.fillRect(11, 4, 3, 4);
+                    } else if (itemKey.includes('sword') || itemKey.includes('blade')) {
+                        octx.fillStyle = '#8b5a2b'; // Handle
+                        octx.fillRect(2, 12, 3, 3);
+                        octx.fillStyle = '#555560'; // Guard
+                        octx.fillRect(3, 9, 6, 2);
+                        octx.fillRect(3, 10, 2, 5);
+                        octx.fillStyle = matColor; // Blade
+                        for (let i = 0; i < 8; i++) {
+                            octx.fillRect(5 + i, 9 - i, 3, 3);
+                        }
+                    } else if (itemKey.includes('axe')) {
+                        octx.fillStyle = '#8b5a2b';
+                        for (let i = 3; i < 13; i++) octx.fillRect(i, 15 - i, 2, 2);
+                        octx.fillStyle = matColor;
+                        octx.fillRect(2, 2, 7, 6);
+                    } else if (itemKey.includes('shovel')) {
+                        octx.fillStyle = '#8b5a2b';
+                        for (let i = 3; i < 12; i++) octx.fillRect(i, 15 - i, 2, 2);
+                        octx.fillStyle = matColor;
+                        octx.fillRect(9, 2, 5, 5);
+                    } else if (itemKey.includes('apple')) {
+                        octx.fillStyle = itemKey.includes('enchanted') ? '#d866ff' : (itemKey.includes('gold') ? '#ffe838' : '#ee2222');
+                        octx.fillRect(3, 4, 10, 10);
+                        octx.fillStyle = '#44bb22'; // Leaf
+                        octx.fillRect(7, 1, 3, 3);
+                    } else if (itemKey.includes('beef') || itemKey.includes('pork') || itemKey.includes('chicken') || itemKey.includes('flesh') || itemKey.includes('fish')) {
+                        octx.fillStyle = itemKey.includes('cooked') ? '#9e4e28' : (itemKey.includes('flesh') ? '#6b4428' : '#e85555');
+                        octx.fillRect(2, 4, 12, 9);
+                        octx.fillStyle = '#ffffff';
+                        octx.fillRect(11, 3, 3, 3);
+                    } else if (itemKey.includes('bread') || itemKey.includes('potato') || itemKey.includes('pie') || itemKey.includes('cookie')) {
+                        octx.fillStyle = '#d89648';
+                        octx.fillRect(2, 5, 12, 7);
+                    } else if (itemKey.includes('carrot') || itemKey.includes('melon')) {
+                        octx.fillStyle = itemKey.includes('carrot') ? '#ff7711' : '#ee3333';
+                        octx.fillRect(3, 3, 10, 10);
+                    } else if (itemKey.includes('crystal') || itemKey.includes('diamond') || itemKey.includes('emerald') || itemKey.includes('shard')) {
+                        octx.fillStyle = itemKey.includes('shard') ? '#22d8e8' : (itemKey === 'emerald' ? '#22dd66' : matColor);
+                        octx.fillRect(5, 2, 6, 12);
+                        octx.fillRect(3, 4, 10, 8);
+                    } else if (itemKey.includes('ingot')) {
+                        octx.fillStyle = matColor;
+                        octx.fillRect(2, 6, 12, 6);
+                        octx.fillRect(4, 4, 8, 2);
+                    } else if (itemKey.includes('boots')) {
+                        octx.fillStyle = matColor;
+                        octx.fillRect(2, 5, 4, 8); octx.fillRect(1, 10, 5, 3);
+                        octx.fillRect(10, 5, 4, 8); octx.fillRect(9, 10, 5, 3);
+                    } else if (itemKey.includes('jetpack')) {
+                        octx.fillStyle = '#77808a';
+                        octx.fillRect(2, 3, 5, 9);
+                        octx.fillRect(9, 3, 5, 9);
+                        octx.fillStyle = '#ff5500';
+                        octx.fillRect(3, 12, 3, 3);
+                        octx.fillRect(10, 12, 3, 3);
+                    } else if (itemKey === 'bone' || itemKey === 'feather') {
+                        octx.fillStyle = '#f5f5fa';
+                        for (let i = 3; i < 13; i++) octx.fillRect(i, 15 - i, 3, 3);
+                    } else if (itemKey === 'gunpowder' || itemKey === 'bone_meal' || itemKey === 'coal' || itemKey === 'redstone') {
+                        octx.fillStyle = itemKey === 'bone_meal' ? '#ffffff' : (itemKey === 'redstone' ? '#ff2222' : '#33333a');
+                        octx.fillRect(3, 4, 10, 9);
+                        octx.fillRect(5, 2, 6, 3);
+                    } else {
+                        octx.fillStyle = '#9c6228';
+                        for (let i = 3; i < 13; i++) octx.fillRect(i, 15 - i, 3, 3);
+                    }
+                }
+
+                // Draw crisp 2px dark silhouette outline around the 16x16 sprite scaled to 48x48 centered in 64x64
+                const sil = document.createElement('canvas');
+                sil.width = 16;
+                sil.height = 16;
+                const sctx = sil.getContext('2d');
+                sctx.drawImage(off, 0, 0);
+                sctx.globalCompositeOperation = 'source-in';
+                sctx.fillStyle = '#141418';
+                sctx.fillRect(0, 0, 16, 16);
+
+                const offsets = [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2]];
+                offsets.forEach(([ox, oy]) => {
+                    ctx.drawImage(sil, 0, 0, 16, 16, 8 + ox, 8 + oy, 48, 48);
+                });
+                ctx.drawImage(off, 0, 0, 16, 16, 8, 8, 48, 48);
             }
 
             const dataUrl = c.toDataURL();

@@ -70,14 +70,83 @@
             });
         }
 
+        getShortName(itemKey) {
+            if (!itemKey) return '';
+            const shortMap = {
+                flint_and_steel: '🔥着火石',
+                tnt: '💣TNT爆薬',
+                cluster_tnt: '💣クラスター',
+                fire_charge: '🔥火炎弾',
+                obsidian: '黒曜石',
+                crying_obsidian: '泣く黒曜石',
+                grass: '草ブロック',
+                dirt: '土',
+                stone: '石',
+                cobblestone: '丸石',
+                oak_log: 'オーク原木',
+                oak_planks: 'オーク木材',
+                birch_log: '白樺の原木',
+                birch_planks: '白樺の木材',
+                bricks: 'レンガ',
+                stone_bricks: '石レンガ',
+                glass: 'ガラス',
+                sand: '砂',
+                gravel: '砂利',
+                sandstone: '砂岩',
+                water_bucket: '💧水バケツ',
+                lava_bucket: '🌋溶岩バケツ',
+                bucket: 'バケツ',
+                bow: '🏹弓',
+                arrow: '矢',
+                ender_pearl: '🟣パール',
+                bone_meal: '骨粉',
+                sapling: '🌲苗木',
+                shears: '✂️ハサミ',
+                bed: '🛏️ベッド',
+                ladder: 'はしご',
+                torch: '🔦松明',
+                soul_lantern: '魂ランタン',
+                glowstone: '発光石',
+                crafting_table: '作業台',
+                furnace: 'かまど',
+                chest: 'チェスト',
+                diamond_sword: '⚔️ダイヤ剣',
+                netherite_sword: '⚔️ネザライト剣',
+                iron_sword: '⚔️鉄の剣',
+                golden_sword: '⚔️金の剣',
+                stone_sword: '⚔️石の剣',
+                wooden_sword: '⚔️木の剣',
+                astral_blade: '★聖剣',
+                diamond_pickaxe: '⛏️ダイヤ鶴橋',
+                netherite_pickaxe: '⛏️ネザライト鶴',
+                iron_pickaxe: '⛏️鉄ツルハシ',
+                laser_drill: '★ドリル',
+                spyglass: '🔭望遠鏡',
+                compass: '🧭コンパス',
+                clock: '🕒時計',
+                fishing_rod: '🎣釣竿',
+                golden_apple: '🍎金リンゴ',
+                enchanted_golden_apple: '🍎神リンゴ',
+                cooked_beef: '🍖焼肉'
+            };
+            if (shortMap[itemKey]) return shortMap[itemKey];
+            const def = window.ITEMS[itemKey];
+            const raw = def?.nameJa || def?.name || itemKey;
+            return raw.replace(/\(.*?\)|（.*?）/g, '').slice(0, 6);
+        }
+
         renderSlot(item, extraClass = '', isSelected = false, clickHandler = '') {
             if (!item) {
                 return `<div class="slot ${isSelected ? 'selected' : ''} ${extraClass}" ${clickHandler ? `onclick="${clickHandler}"` : ''}></div>`;
             }
             const iconUrl = this.game.atlas?.getItemIconDataURL(item.item) || '';
+            const shortName = this.getShortName(item.item);
+            const def = window.ITEMS[item.item];
+            const fullTitle = `${def?.nameJa || item.item}${def?.desc ? ' - ' + def.desc : ''}`;
             return `
-                <div class="slot ${isSelected ? 'selected' : ''} ${extraClass}" ${clickHandler ? `onclick="${clickHandler}"` : ''}>
+                <div class="slot ${isSelected ? 'selected' : ''} ${extraClass}" title="${fullTitle}" ${clickHandler ? `onclick="${clickHandler}"` : ''}>
                     <img src="${iconUrl}" class="item-icon" alt="">
+                    <div class="slot-label">${shortName}</div>
                     ${item.count > 1 ? `<div class="count">${item.count}</div>` : ''}
                 </div>
             `;
@@ -128,7 +197,7 @@
                 this.oxygenContainer.style.display = 'none';
             }
 
-            // 4. Hotbar Slots (Clean Pixel Art Icons Only - NO raw text!)
+            // 4. Hotbar Slots (With 3D Isometric Icon & Clear Japanese Name Label)
             let hotbarHTML = '';
             for (let i = 0; i < 9; i++) {
                 const item = this.inventory.slots[i];
@@ -137,29 +206,33 @@
             }
             this.hotbarContainer.innerHTML = hotbarHTML;
 
-            // 5. Tooltip for selected item (Fade in on change, then fade out)
-            const curIdx = this.inventory.selectedHotbarIndex;
-            if (curIdx !== this.lastSelectedHotbarIndex) {
-                this.lastSelectedHotbarIndex = curIdx;
-                const curItem = this.inventory.getSelectedItem();
-                if (curItem) {
-                    const def = window.ITEMS[curItem.item];
-                    this.itemTooltip.textContent = `${def?.nameJa || def?.name || curItem.item}`;
-                    this.itemTooltip.style.opacity = '1';
-                    if (this.tooltipFadeTimer) clearTimeout(this.tooltipFadeTimer);
-                    this.tooltipFadeTimer = setTimeout(() => {
-                        this.itemTooltip.style.opacity = '0';
-                    }, 2200);
-                } else {
-                    this.itemTooltip.style.opacity = '0';
+            // 5. Always-Clear Tooltip for Selected Item & Action Guide
+            const curItem = this.inventory.getSelectedItem();
+            if (curItem) {
+                const def = window.ITEMS[curItem.item];
+                const itemName = def?.nameJa || def?.name || curItem.item;
+                let actionHint = '【左クリック / 右クリック: 使用】';
+                if (curItem.item === 'flint_and_steel' || curItem.item === 'fire_charge') {
+                    actionHint = '🔥 【左クリック / 右クリック: TNT点火・ブロックに炎着火・黒曜石ポータル起動】';
+                } else if (curItem.item === 'tnt' || curItem.item === 'cluster_tnt') {
+                    actionHint = '💣 【左クリック / 右クリック: TNT設置 ➔ 着火石でクリックして点火！】';
+                } else if (def?.blockId) {
+                    actionHint = '🧱 【左クリック / 右クリック: ブロック設置 ｜ Shift+左クリック: 破壊】';
+                } else if (def?.toolType || curItem.item.includes('sword') || curItem.item.includes('pickaxe')) {
+                    actionHint = '⛏️ 【左クリック: 採掘・破壊・攻撃】';
                 }
+                this.itemTooltip.textContent = `${itemName}  ${actionHint}`;
+                this.itemTooltip.style.opacity = '1';
+            } else {
+                this.itemTooltip.textContent = '✋ 素手 【左クリック: 採掘・破壊・攻撃 ｜ Eキー: アイテムカタログ】';
+                this.itemTooltip.style.opacity = '0.85';
             }
 
             // 6. Debug Info (F3)
             if (this.game.showDebug) {
                 this.debugOverlay.style.display = 'block';
                 this.debugOverlay.innerHTML = `
-                    <b>NovaCraft Infinite v1.0.0</b> (${this.player.gameMode})<br>
+                    <b>NovaCraft Infinite v1.6.0</b> (${this.player.gameMode})<br>
                     XYZ: ${this.player.x.toFixed(2)} / ${this.player.y.toFixed(2)} / ${this.player.z.toFixed(2)}<br>
                     Chunk: ${Math.floor(this.player.x / 16)}, ${Math.floor(this.player.z / 16)}<br>
                     Yaw: ${(this.player.yaw * 180 / Math.PI).toFixed(1)}° | Pitch: ${(this.player.pitch * 180 / Math.PI).toFixed(1)}°<br>
@@ -248,6 +321,18 @@
             }
         }
 
+        equipCreativeStarterHotbar() {
+            this.inventory.slots[0] = { item: 'grass', count: 64 };
+            this.inventory.slots[1] = { item: 'cobblestone', count: 64 };
+            this.inventory.slots[2] = { item: 'oak_planks', count: 64 };
+            this.inventory.slots[3] = { item: 'tnt', count: 64 };
+            this.inventory.slots[4] = { item: 'flint_and_steel', count: 1 };
+            this.inventory.slots[5] = { item: 'obsidian', count: 64 };
+            this.inventory.slots[6] = { item: 'water_bucket', count: 1 };
+            this.inventory.slots[7] = { item: 'diamond_sword', count: 1 };
+            this.inventory.slots[8] = { item: 'bow', count: 1 };
+        }
+
         selectGameMode(mode) {
             if (this.hasSelectedMode) return;
             this.hasSelectedMode = true;
@@ -258,13 +343,17 @@
             // Always start game in bright, clear morning daylight (~8:30 AM)!
             this.game.timeOfDay = 0.22;
 
-            // Clear starter inventory for clean vanilla survival start
+            // Initialize inventory
             this.inventory.slots = new Array(36).fill(null);
             this.inventory.selectedHotbarIndex = 0;
+            if (mode === 'creative') {
+                // In Creative Mode, pre-load hotbar with Grass, Cobblestone, Planks, TNT, Flint & Steel (着火石), Obsidian, Water Bucket, Sword, Bow!
+                this.equipCreativeStarterHotbar();
+            }
 
             this.closeModal();
             this.renderHUD();
-            this.addChatMessage(`★ ゲームモード「${mode === 'creative' ? 'クリエイティブ' : 'サバイバル'}」で開始しました！`, '#55ff55');
+            this.addChatMessage(`★ ゲームモード「${mode === 'creative' ? 'クリエイティブ' : 'サバイバル'}」で開始しました！ (左クリックでブロック設置・着火石使用可能 / Eキーで全アイテムカタログ)`, '#55ff55');
             // Guaranteed animal cluster around player upon starting game
             if (this.game.mobManager) {
                 this.game.mobManager.spawnAnimalCluster(this.player.x, this.player.z, 10);
@@ -369,23 +458,76 @@
         }
 
         renderCreativeCatalog() {
-            this.initCreativeCatalog();
+            this.initCreativeCatalog(this.currentCatalogFilter || 'all');
         }
 
-        initCreativeCatalog() {
+        filterCatalog(category, btnEl) {
+            this.currentCatalogFilter = category;
+            if (btnEl && btnEl.parentElement) {
+                const btns = btnEl.parentElement.querySelectorAll('.catalog-tab-btn');
+                btns.forEach(b => b.classList.remove('active'));
+                btnEl.classList.add('active');
+            }
+            this.initCreativeCatalog(category);
+        }
+
+        initCreativeCatalog(filterCategory = 'all') {
             const catalogGrid = document.getElementById('creative-catalog-grid');
             if (!catalogGrid) return;
             catalogGrid.innerHTML = '';
 
+            const featuredKeys = [
+                'flint_and_steel', 'tnt', 'cluster_tnt', 'fire_charge',
+                'obsidian', 'grass', 'cobblestone', 'oak_planks',
+                'bricks', 'stone_bricks', 'glass', 'glowstone',
+                'torch', 'bed', 'water_bucket', 'lava_bucket',
+                'bucket', 'bow', 'arrow', 'ender_pearl',
+                'bone_meal', 'sapling', 'shears', 'spyglass',
+                'diamond_sword', 'netherite_sword', 'diamond_pickaxe', 'netherite_pickaxe',
+                'astral_blade', 'laser_drill', 'gravity_boots', 'jetpack'
+            ];
+            const featuredSet = new Set(featuredKeys);
+
             const items = window.ITEMS;
-            for (let k in items) {
+            const allKeys = Object.keys(items);
+
+            // Order: 1. Featured items -> 2. Blocks -> 3. Tools/Combat -> 4. Food/Materials
+            const orderedKeys = [];
+            featuredKeys.forEach(k => {
+                if (items[k]) orderedKeys.push(k);
+            });
+            allKeys.forEach(k => {
+                if (!featuredSet.has(k) && items[k]?.blockId) orderedKeys.push(k);
+            });
+            allKeys.forEach(k => {
+                if (!featuredSet.has(k) && !items[k]?.blockId && (items[k]?.category === 'tools' || items[k]?.category === 'combat' || items[k]?.category === 'armor' || items[k]?.category === 'custom')) {
+                    orderedKeys.push(k);
+                }
+            });
+            allKeys.forEach(k => {
+                if (!orderedKeys.includes(k)) orderedKeys.push(k);
+            });
+
+            for (const k of orderedKeys) {
                 const item = items[k];
+                if (!item) continue;
+
+                const isFeatured = featuredSet.has(k);
+                if (filterCategory === 'featured' && !isFeatured) continue;
+                if (filterCategory === 'blocks' && !item.blockId) continue;
+                if (filterCategory === 'tools' && item.blockId && item.category !== 'tools' && item.category !== 'combat') continue;
+                if (filterCategory === 'tools' && !item.blockId && item.category !== 'tools' && item.category !== 'combat' && item.category !== 'armor' && item.category !== 'custom') continue;
+                if (filterCategory === 'food' && (item.blockId || (item.category !== 'food' && item.category !== 'materials'))) continue;
+
                 const isCustom = (item.category === 'custom' || item.customAbility);
+                const extraCls = isCustom ? 'custom-item' : (isFeatured ? 'featured-item' : '');
                 const iconUrl = this.game?.atlas?.getItemIconDataURL(k) || '';
+                const shortName = this.getShortName(k);
                 catalogGrid.innerHTML += `
-                    <div class="slot ${isCustom ? 'custom-item' : ''}" title="${item.nameJa || item.name} - ${item.desc || ''}" onclick="window.game.pickCreativeItem('${k}')">
+                    <div class="slot ${extraCls}" title="${item.nameJa || item.name}${item.desc ? ' - ' + item.desc : ''}" onclick="window.game.pickCreativeItem('${k}')">
                         <img src="${iconUrl}" class="item-icon" alt="">
-                        ${isCustom ? '<span class="badge">★</span>' : ''}
+                        <div class="slot-label">${shortName}</div>
+                        ${isCustom ? '<span class="badge">★</span>' : (k === 'flint_and_steel' || k === 'tnt' ? '<span class="badge">🔥</span>' : '')}
                     </div>
                 `;
             }
