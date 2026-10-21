@@ -1365,6 +1365,19 @@
                     ctx.drawImage(sil, 0, 0, 16, 16, 8 + ox, 8 + oy, 48, 48);
                 });
                 ctx.drawImage(off, 0, 0, 16, 16, 8, 8, 48, 48);
+
+                if (itemKey === 'flint_and_steel') {
+                    ctx.fillStyle = '#ff6600';
+                    ctx.fillRect(10, 4, 44, 15);
+                    ctx.strokeStyle = '#111111';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(10, 4, 44, 15);
+                    ctx.fillStyle = '#ffff55';
+                    ctx.font = 'bold 11px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🔥着火', 32, 11.5);
+                }
             }
 
             const dataUrl = c.toDataURL();

@@ -358,16 +358,13 @@
             // Always start game in bright, clear morning daylight (~8:30 AM)!
             this.game.timeOfDay = 0.22;
 
-            // Initialize inventory
+            // Initialize inventory with starter hotbar (Grass, Cobblestone, Planks, TNT, Flint & Steel 着火石, Obsidian, Water Bucket, Sword, Bow) in both Survival & Creative!
             this.inventory.slots = new Array(36).fill(null);
             this.inventory.selectedHotbarIndex = 0;
-            if (mode === 'creative') {
-                // In Creative Mode, pre-load hotbar with Grass, Cobblestone, Planks, TNT, Flint & Steel (着火石), Obsidian, Water Bucket, Sword, Bow!
-                this.equipCreativeStarterHotbar();
-            }
+            this.equipCreativeStarterHotbar();
 
             this.closeModal();
-            this.renderHUD();
+            this.renderHUD(true);
             this.addChatMessage(`★ ゲームモード「${mode === 'creative' ? 'クリエイティブ' : 'サバイバル'}」で開始しました！ (左クリックでブロック設置・着火石使用可能 / Eキーで全アイテムカタログ)`, '#55ff55');
             // Guaranteed animal cluster around player upon starting game
             if (this.game.mobManager) {

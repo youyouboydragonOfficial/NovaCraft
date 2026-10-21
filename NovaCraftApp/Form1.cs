@@ -41,7 +41,8 @@ public partial class Form1 : Form
         try
         {
             string userDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NovaCraft", "WebView2Data");
-            var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+            var options = new CoreWebView2EnvironmentOptions("--disable-http-cache");
+            var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder, options);
             await webView.EnsureCoreWebView2Async(env);
 
             string appDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -79,7 +80,7 @@ public partial class Form1 : Form
                 }
             };
 
-            webView.Source = new Uri("https://novacraft.game/index.html");
+            webView.Source = new Uri($"https://novacraft.game/index.html?t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
         }
         catch (Exception ex)
         {

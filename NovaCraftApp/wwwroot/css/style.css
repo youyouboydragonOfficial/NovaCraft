@@ -67,6 +67,52 @@ body, html {
     padding-bottom: 12px;
 }
 
+/* Quick Action Bar above Hotbar */
+#quick-action-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+    pointer-events: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.quick-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #fff;
+    background: rgba(45, 55, 72, 0.92);
+    border: 2px solid #cbd5e0;
+    border-radius: 4px;
+    cursor: pointer;
+    text-shadow: 1px 1px 0 #000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.6);
+    transition: transform 0.08s, background 0.12s;
+}
+.quick-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(74, 85, 104, 0.98);
+    border-color: #ffff55;
+}
+.quick-btn.tnt-btn {
+    background: rgba(185, 28, 28, 0.92);
+    border-color: #fca5a5;
+}
+.quick-btn.flint-btn {
+    background: rgba(217, 119, 6, 0.95);
+    border-color: #fde047;
+}
+.quick-btn.detonate-btn {
+    background: rgba(220, 38, 38, 0.96);
+    border-color: #fef08a;
+    color: #fef08a;
+}
+.quick-btn.catalog-btn {
+    background: rgba(37, 99, 235, 0.92);
+    border-color: #93c5fd;
+}
+
 /* Status Bars: Health & Hunger */
 .status-bars {
     display: flex;

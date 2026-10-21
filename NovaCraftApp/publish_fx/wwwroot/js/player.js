@@ -71,8 +71,25 @@
             this.health = Math.min(this.maxHealth, this.health + amount);
         }
 
+        setGameMode(mode) {
+            this.gameMode = mode;
+            if (mode !== 'creative') {
+                this.flying = false;
+                if (this.velocity.y > 0) this.velocity.y = 0;
+            }
+            this.fallDistance = 0;
+        }
+
         update(dt, input, hotbarItem) {
             if (this.isDead) return;
+
+            // ★ Absolute guarantee: Survival mode NEVER flies! Switching from Creative -> Survival immediately drops player to the ground.
+            if (this.gameMode !== 'creative') {
+                if (this.flying) {
+                    this.flying = false;
+                    if (this.velocity.y > 0) this.velocity.y = 0;
+                }
+            }
 
             // Check equipped items for custom perks
             const hasGravityBoots = (hotbarItem && hotbarItem.item === 'gravity_boots');
@@ -136,8 +153,9 @@
                 this.speedBoostTimer -= dt;
             }
 
-            // Dynamic Camera FOV (Widening FOV when sprinting, smooth lerp)
-            const targetFOV = isSprinting ? 86 : 75;
+            // Dynamic Camera FOV (Spyglass zoom or Widening FOV when sprinting, smooth lerp)
+            const isSpyglassZoom = (hotbarItem && hotbarItem.item === 'spyglass' && (input.mouseButtons[2] || this.isZooming));
+            const targetFOV = isSpyglassZoom ? 26 : (isSprinting ? 86 : 75);
             if (Math.abs(this.camera.fov - targetFOV) > 0.1) {
                 this.camera.fov += (targetFOV - this.camera.fov) * Math.min(1.0, dt * 10.0);
                 this.camera.updateProjectionMatrix();
@@ -178,11 +196,26 @@
                 this.velocity.z = 0;
             }
 
+            // Check if player is on a Ladder
+            const B = window.BLOCKS;
+            const blockAtFeet = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 0.1), Math.floor(this.z));
+            const blockAtWaist = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 1.0), Math.floor(this.z));
+            const onLadder = (B.LADDER && (blockAtFeet === B.LADDER.id || blockAtWaist === B.LADDER.id));
+
             // Vertical movement
-            if (this.flying) {
+            if (this.flying && this.gameMode === 'creative') {
                 if (input.keys['Space']) this.velocity.y = speed;
-                else if (input.keys['ShiftLeft']) this.velocity.y = -speed;
+                else if (input.keys['ShiftLeft'] || input.keys['ShiftRight']) this.velocity.y = -speed;
                 else this.velocity.y = 0;
+            } else if (onLadder) {
+                this.fallDistance = 0;
+                if (input.keys['Space'] || isForward) {
+                    this.velocity.y = 4.2;
+                } else if (input.keys['ShiftLeft'] || input.keys['ShiftRight']) {
+                    this.velocity.y = 0;
+                } else {
+                    this.velocity.y = -3.0;
+                }
             } else {
                 // Gravity & jumping
                 if (this.inWater) {
@@ -202,8 +235,29 @@
             // Apply physics
             this.physics.moveEntity(this, this.velocity, dt);
 
-            // Survival mechanics: Hunger & Oxygen
+            // ★ Void Safety Anchor ONLY (Does NOT teleport player upward when under trees, roofs, or inside Underground Ancient City!)
+            if (this.y < 0.5 || isNaN(this.y)) {
+                const surfaceY = this.world.getHighestSolidY(Math.floor(this.x), Math.floor(this.z));
+                this.y = surfaceY + 1.8;
+                this.velocity.set(0, 0, 0);
+                this.fallDistance = 0;
+                this.onGround = true;
+            }
+
+            // Survival mechanics: Hunger, Oxygen, Fire & Lava
             if (this.gameMode === 'survival') {
+                // Fire & Lava burn damage
+                const inFire = (B.FIRE && (blockAtFeet === B.FIRE.id || blockAtWaist === B.FIRE.id));
+                if ((this.inLava || inFire) && !this.inWater) {
+                    this.burnTimer = (this.burnTimer || 0) + dt;
+                    if (this.burnTimer > 0.8) {
+                        this.takeDamage(this.inLava ? 3 : 1, 'fire');
+                        this.burnTimer = 0;
+                    }
+                } else {
+                    this.burnTimer = 0;
+                }
+
                 // Oxygen in water: ONLY consume when head is actually submerged under water!
                 if (this.headInWater) {
                     this.oxygen = Math.max(0, this.oxygen - dt * 1.0); // 15 seconds full breathing time
@@ -289,39 +343,89 @@
             this.handSwing = 0;
         }
 
-        // Raycast against voxel world
-        raycast(maxDistance = 5.5) {
+        // Raycast against voxel world (Hits solid & targetable blocks like torches, ladders, saplings, fire)
+        raycast(maxDistance = 7.5, customDir = null) {
             const origin = new THREE.Vector3(this.x, this.y + this.eyeHeight, this.z);
             const dir = new THREE.Vector3();
-            this.camera.getWorldDirection(dir);
+            if (customDir) {
+                dir.copy(customDir).normalize();
+            } else {
+                this.camera.getWorldDirection(dir);
+            }
 
-            const step = 0.05;
+            const step = 0.04;
             let current = origin.clone();
-            let prevBlock = null;
+            let prevBlock = {
+                x: Math.floor(origin.x),
+                y: Math.floor(origin.y),
+                z: Math.floor(origin.z)
+            };
+            const B = window.BLOCKS;
 
-            for (let d = 0; d < maxDistance; d += step) {
+            for (let d = 0.04; d < maxDistance; d += step) {
                 current.addScaledVector(dir, step);
                 const bx = Math.floor(current.x);
                 const by = Math.floor(current.y);
                 const bz = Math.floor(current.z);
 
                 const blockId = this.world.getBlock(bx, by, bz);
-                const blockDef = window.BLOCK_BY_ID[blockId];
-
-                if (blockDef && blockDef.solid) {
-                    // Determine normal from prev block
-                    let normal = [0, 1, 0];
-                    if (prevBlock) {
-                        normal = [prevBlock.x - bx, prevBlock.y - by, prevBlock.z - bz];
+                if (blockId !== B.AIR.id && blockId !== B.WATER.id && blockId !== B.LAVA.id) {
+                    const blockDef = window.BLOCK_BY_ID[blockId];
+                    if (blockDef) {
+                        let normal = [0, 1, 0];
+                        if (prevBlock && (prevBlock.x !== bx || prevBlock.y !== by || prevBlock.z !== bz)) {
+                            const dx = prevBlock.x - bx;
+                            const dy = prevBlock.y - by;
+                            const dz = prevBlock.z - bz;
+                            // Ensure cardinal face normal
+                            if (Math.abs(dx) >= Math.abs(dy) && Math.abs(dx) >= Math.abs(dz)) {
+                                normal = [Math.sign(dx) || 0, 0, 0];
+                            } else if (Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) >= Math.abs(dz)) {
+                                normal = [0, Math.sign(dy) || 1, 0];
+                            } else {
+                                normal = [0, 0, Math.sign(dz) || 0];
+                            }
+                        }
+                        return {
+                            x: bx, y: by, z: bz,
+                            blockId: blockId,
+                            normal: normal,
+                            distance: d
+                        };
                     }
-                    return {
-                        x: bx, y: by, z: bz,
-                        blockId: blockId,
-                        normal: normal,
-                        distance: d
-                    };
                 }
                 prevBlock = { x: bx, y: by, z: bz };
+            }
+            return null;
+        }
+
+        // Raycast specifically including Water and Lava (for Bucket scooping)
+        raycastFluid(maxDistance = 7.5, customDir = null) {
+            const origin = new THREE.Vector3(this.x, this.y + this.eyeHeight, this.z);
+            const dir = new THREE.Vector3();
+            if (customDir) {
+                dir.copy(customDir).normalize();
+            } else {
+                this.camera.getWorldDirection(dir);
+            }
+
+            const step = 0.05;
+            let current = origin.clone();
+            const B = window.BLOCKS;
+
+            for (let d = 0.05; d < maxDistance; d += step) {
+                current.addScaledVector(dir, step);
+                const bx = Math.floor(current.x);
+                const by = Math.floor(current.y);
+                const bz = Math.floor(current.z);
+
+                const blockId = this.world.getBlock(bx, by, bz);
+                if (blockId === B.WATER.id || blockId === B.LAVA.id) {
+                    return { x: bx, y: by, z: bz, blockId: blockId, distance: d };
+                }
+                if (blockId !== B.AIR.id) {
+                    break;
+                }
             }
             return null;
         }

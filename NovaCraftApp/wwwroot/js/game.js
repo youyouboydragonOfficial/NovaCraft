@@ -487,43 +487,26 @@
 
                     this.player.swingHand();
 
-                    // ★ カーソル左クリックでブロック設置・着火石使用・アイテム使用！
+                    // ★ 左クリック: モブがいればモブを殴り、モブがいなければブロック設置・着火石使用・TNT起爆！
                     const heldItem = this.inventory.getSelectedItem();
                     const itemKey = heldItem ? heldItem.item : null;
                     const itemDef = itemKey ? window.ITEMS[itemKey] : null;
                     const isShiftBreak = !!(this.input.keys['ShiftLeft'] || this.input.keys['ShiftRight']);
-                    const isUsableOnLeftClick = itemDef && (
-                        itemDef.blockId ||
-                        itemKey === 'flint_and_steel' ||
-                        itemKey === 'fire_charge' ||
-                        itemKey === 'bow' ||
-                        itemKey === 'ender_pearl' ||
-                        itemKey === 'snowball' ||
-                        itemKey === 'bucket' ||
-                        itemKey === 'water_bucket' ||
-                        itemKey === 'lava_bucket' ||
-                        itemKey === 'bone_meal' ||
-                        itemKey === 'shears' ||
-                        itemKey === 'fishing_rod' ||
-                        itemKey === 'compass' ||
-                        itemKey === 'clock' ||
-                        itemKey === 'spyglass' ||
-                        itemKey === 'astral_blade' ||
-                        itemKey === 'laser_drill' ||
-                        itemDef.category === 'food'
-                    );
+                    const isMiningTool = Boolean(itemDef && (itemDef.toolType === 'pickaxe' || itemDef.toolType === 'axe' || itemDef.toolType === 'shovel'));
 
-                    if (isUsableOnLeftClick && !isShiftBreak) {
-                        const dir = customDir || (() => { const d = new THREE.Vector3(); this.camera.getWorldDirection(d); return d; })();
-                        const origin = new THREE.Vector3(this.player.x, this.player.y + this.player.eyeHeight, this.player.z);
-                        const hitMob = this.mobManager.checkMobHit(origin.clone().addScaledVector(dir, 2.0), 1.4);
-                        if (hitMob && itemKey !== 'shears') {
-                            this.handleLeftClick(customDir);
-                        } else {
-                            this.handleRightClick(customDir);
-                        }
-                    } else {
+                    const dir = customDir || (() => { const d = new THREE.Vector3(); this.camera.getWorldDirection(d); return d; })();
+                    const origin = new THREE.Vector3(this.player.x, this.player.y + this.player.eyeHeight, this.player.z);
+                    const hitMob = this.mobManager.checkMobHit(origin.clone().addScaledVector(dir, 2.0), 1.5);
+
+                    if (hitMob && itemKey !== 'shears') {
+                        // モブが目の前にいる時は左クリックでモブを殴る！
                         this.handleLeftClick(customDir);
+                    } else if (isShiftBreak || isMiningTool) {
+                        // Shift+左クリック または ツルハシ等の採掘ツール所持時はブロック破壊
+                        this.handleLeftClick(customDir);
+                    } else {
+                        // モブがいない時は左クリックでブロック設置・着火石点火・アイテム使用！
+                        this.handleRightClick(customDir);
                     }
                 } else if (e.button === 2) {
                     // Right click: Interact / Place block / Custom ability
@@ -577,7 +560,7 @@
             if (hitMob) {
                 const heldItem = this.inventory.getSelectedItem();
                 const itemDef = window.ITEMS[heldItem?.item];
-                const damage = itemDef?.damage || 1;
+                const damage = itemDef?.damage || 4;
                 hitMob.takeDamage(damage);
                 this.sound.playHit();
                 this.itemManager.spawnBlockParticles(hitMob.x, hitMob.y + 1, hitMob.z, 0xff2222, 6);
@@ -933,23 +916,41 @@
                     } else if (bId === B.WAYGATE.id) {
                         this.teleportToNextWaygate(ray.x, ray.y, ray.z);
                         return;
-                    } else if ((bId === B.TNT.id || bId === B.CLUSTER_TNT.id) && itemKey !== 'tnt' && itemKey !== 'cluster_tnt') {
-                        // Right-clicking TNT ignites it (and holding TNT allows stacking more TNT blocks!)
+                    } else if (bId === B.TNT.id || bId === B.CLUSTER_TNT.id) {
+                        // Clicking on a placed TNT block (with Flint & Steel, TNT, sword, or bare hand) immediately ignites it!
                         if (this.sound.playFlintAndSteel) this.sound.playFlintAndSteel();
                         this.itemManager.igniteTnt(ray.x, ray.y, ray.z, bId === B.CLUSTER_TNT.id);
                         this.player.swingHand();
+                        this.ui.addChatMessage('💥 TNTに着火しました！爆発に注意！', '#ff5555');
                         return;
                     }
                 }
 
-                // ★ 13. Place Block in World
-                if (itemDef && itemDef.blockId) {
+                // ★ 13. Place Block in World (If holding a sword/empty hand when no mob is present, fallback to first block in hotbar!)
+                let placeItemDef = (itemDef && itemDef.blockId) ? itemDef : null;
+                let placeSlotIdx = this.inventory.selectedHotbarIndex;
+                if (!placeItemDef) {
+                    for (let i = 0; i < 36; i++) {
+                        const s = this.inventory.slots[i];
+                        const sDef = s ? window.ITEMS[s.item] : null;
+                        if (sDef && sDef.blockId) {
+                            placeItemDef = sDef;
+                            placeSlotIdx = i;
+                            break;
+                        }
+                    }
+                    if (!placeItemDef) {
+                        placeItemDef = window.ITEMS['grass'];
+                    }
+                }
+
+                if (placeItemDef && placeItemDef.blockId) {
                     const replaceInPlace = (B.FIRE && bId === B.FIRE.id);
                     const px = replaceInPlace ? ray.x : (ray.x + ray.normal[0]);
                     const py = replaceInPlace ? ray.y : (ray.y + ray.normal[1]);
                     const pz = replaceInPlace ? ray.z : (ray.z + ray.normal[2]);
 
-                    const targetBlockDef = window.BLOCK_BY_ID[itemDef.blockId];
+                    const targetBlockDef = window.BLOCK_BY_ID[placeItemDef.blockId];
                     const placeBox = new AABB(px, py, pz, px + 1, py + 1, pz + 1);
                     const playerBox = new AABB(
                         this.player.x - 0.22, this.player.y + 0.08, this.player.z - 0.22,
@@ -968,35 +969,82 @@
                     );
 
                     if (!placeBox.intersects(updatedPlayerBox) || !targetBlockDef?.solid) {
-                        this.world.setBlock(px, py, pz, itemDef.blockId);
+                        this.world.setBlock(px, py, pz, placeItemDef.blockId);
+                        this.sound.playPlace();
+                        this.player.swingHand();
+                        if (this.player.gameMode !== 'creative' && this.inventory.slots[placeSlotIdx]) {
+                            this.inventory.slots[placeSlotIdx].count--;
+                            if (this.inventory.slots[placeSlotIdx].count <= 0) {
+                                this.inventory.slots[placeSlotIdx] = null;
+                            }
+                        }
+                        if (placeItemDef.blockId === B.TNT.id || placeItemDef.blockId === B.CLUSTER_TNT.id) {
+                            this.ui.addChatMessage('💣 TNTを設置しました！（もう一度TNTを左クリック、または[🔥着火石]・[💥起爆ボタン]で爆発します！）', '#ffaa44');
+                        }
+                        // If Sand or Gravel placed in mid-air, apply gravity
+                        if (placeItemDef.blockId === B.SAND.id || placeItemDef.blockId === B.GRAVEL.id) {
+                            this.world.applyGravityAbove(px, py - 1, pz);
+                        }
+                    }
+                }
+            } else {
+                // Fallback placement when aiming into open space / sky (places block 3.5m in front of cursor/crosshair)
+                let placeItemDef = (itemDef && itemDef.blockId) ? itemDef : window.ITEMS['grass'];
+                if (placeItemDef && placeItemDef.blockId) {
+                    const px = Math.floor(eyeOrigin.x + dir.x * 3.5);
+                    const py = Math.max(1, Math.min(62, Math.floor(eyeOrigin.y + dir.y * 3.5)));
+                    const pz = Math.floor(eyeOrigin.z + dir.z * 3.5);
+                    if (this.world.getBlock(px, py, pz) === B.AIR.id) {
+                        this.world.setBlock(px, py, pz, placeItemDef.blockId);
                         this.sound.playPlace();
                         this.player.swingHand();
                         if (this.player.gameMode !== 'creative') {
                             this.inventory.consumeSelectedItem(1);
                         }
-                        // If Sand or Gravel placed in mid-air, apply gravity
-                        if (itemDef.blockId === B.SAND.id || itemDef.blockId === B.GRAVEL.id) {
+                        if (placeItemDef.blockId === B.SAND.id || placeItemDef.blockId === B.GRAVEL.id) {
                             this.world.applyGravityAbove(px, py - 1, pz);
                         }
                     }
                 }
-            } else if (itemDef && itemDef.blockId) {
-                // Fallback placement when aiming into open space / sky (places block 3.5m in front of cursor/crosshair)
-                const px = Math.floor(eyeOrigin.x + dir.x * 3.5);
-                const py = Math.max(1, Math.min(62, Math.floor(eyeOrigin.y + dir.y * 3.5)));
-                const pz = Math.floor(eyeOrigin.z + dir.z * 3.5);
-                if (this.world.getBlock(px, py, pz) === B.AIR.id) {
-                    this.world.setBlock(px, py, pz, itemDef.blockId);
-                    this.sound.playPlace();
-                    this.player.swingHand();
-                    if (this.player.gameMode !== 'creative') {
-                        this.inventory.consumeSelectedItem(1);
-                    }
-                    if (itemDef.blockId === B.SAND.id || itemDef.blockId === B.GRAVEL.id) {
-                        this.world.applyGravityAbove(px, py - 1, pz);
+            }
+        }
+
+        detonateAllPlacedTnt() {
+            const B = window.BLOCKS;
+            const px = Math.floor(this.player.x);
+            const py = Math.floor(this.player.y);
+            const pz = Math.floor(this.player.z);
+            let count = 0;
+
+            for (let dx = -24; dx <= 24; dx++) {
+                for (let dy = -12; dy <= 16; dy++) {
+                    for (let dz = -24; dz <= 24; dz++) {
+                        const bx = px + dx, by = py + dy, bz = pz + dz;
+                        const bId = this.world.getBlock(bx, by, bz);
+                        if (bId === B.TNT.id || bId === B.CLUSTER_TNT.id) {
+                            this.itemManager.igniteTnt(bx, by, bz, bId === B.CLUSTER_TNT.id);
+                            count++;
+                        }
                     }
                 }
             }
+
+            if (count === 0) {
+                // If no TNT is currently placed in the world, place & immediately ignite one 3.5m in front of the player!
+                const dir = new THREE.Vector3();
+                this.camera.getWorldDirection(dir);
+                const tx = Math.floor(this.player.x + dir.x * 3.5);
+                const ty = Math.max(2, Math.floor(this.player.y + 0.5));
+                const tz = Math.floor(this.player.z + dir.z * 3.5);
+                this.world.setBlock(tx, ty, tz, B.TNT.id);
+                this.itemManager.igniteTnt(tx, ty, tz, false);
+                count = 1;
+            }
+
+            if (this.sound.playFlintAndSteel) this.sound.playFlintAndSteel();
+            this.player.swingHand();
+            this.ui.addChatMessage(`💥 ${count}個のTNTを一斉に着火・起爆しました！`, '#ff5555');
+            return count;
         }
 
         teleportToNextWaygate(curX, curY, curZ) {

@@ -612,6 +612,228 @@
                     this.drawPixel('cloud', x, y, 255, 255, 255, 210);
                 }
             }
+
+            // ★ 41. DEEPSLATE & DEEPSLATE BRICKS & DEEPSLATE TILES
+            const rngDeep = createRNG(8881);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const n = rngDeep();
+                    // Deepslate: dark layered slate
+                    const dv = Math.floor(42 + ((x + y * 2) % 4 === 0 ? -8 : 0) + n * 18);
+                    this.drawPixel('deepslate', x, y, dv, dv + 2, dv + 6);
+
+                    // Deepslate Bricks
+                    const isBrickMortar = (y % 8 === 0) || (y < 8 && x % 8 === 0) || (y >= 8 && (x + 4) % 8 === 0);
+                    const bv = isBrickMortar ? 24 : Math.floor(52 + n * 18);
+                    this.drawPixel('deepslate_bricks', x, y, bv, bv + 3, bv + 7);
+
+                    // Deepslate Tiles
+                    const isTileMortar = (y % 4 === 0) || ((Math.floor(y / 4) % 2 === 0) ? (x % 4 === 0) : ((x + 2) % 4 === 0));
+                    const tv = isTileMortar ? 20 : Math.floor(44 + n * 14);
+                    this.drawPixel('deepslate_tiles', x, y, tv, tv + 2, tv + 5);
+                }
+            }
+
+            // ★ 42. REINFORCED DEEPSLATE (Ancient City Central Portal Frame)
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const isFrame = (x <= 2 || x >= 13 || y <= 2 || y >= 13);
+                    const isBoneTrim = (x === 0 || x === 15 || y === 0 || y === 15 || x === 3 || x === 12 || y === 3 || y === 12);
+                    const isCyanRunes = ((x === 7 || x === 8) && (y >= 4 && y <= 11)) || ((y === 7 || y === 8) && (x >= 4 && x <= 11));
+                    if (isBoneTrim) {
+                        this.drawPixel('reinforced_deepslate_top', x, y, 185, 195, 175);
+                        this.drawPixel('reinforced_deepslate_side', x, y, 175, 185, 165);
+                    } else if (isCyanRunes) {
+                        this.drawPixel('reinforced_deepslate_top', x, y, 45, 210, 220);
+                        this.drawPixel('reinforced_deepslate_side', x, y, 40, 195, 205);
+                    } else if (isFrame) {
+                        this.drawPixel('reinforced_deepslate_top', x, y, 55, 65, 68);
+                        this.drawPixel('reinforced_deepslate_side', x, y, 48, 58, 62);
+                    } else {
+                        this.drawPixel('reinforced_deepslate_top', x, y, 28, 34, 40);
+                        this.drawPixel('reinforced_deepslate_side', x, y, 28, 34, 40);
+                    }
+                }
+            }
+
+            // ★ 43. SCULK, SCULK CATALYST, SCULK SHRIEKER
+            const rngSculk = createRNG(9912);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const n = rngSculk();
+                    const isStar = (n > 0.86);
+                    const isPulse = (n > 0.72 && n <= 0.86);
+                    if (isStar) {
+                        this.drawPixel('sculk', x, y, 40, 225, 235); // Bright cyan sculk sensor dot
+                    } else if (isPulse) {
+                        this.drawPixel('sculk', x, y, 15, 125, 145); // Teal vein
+                    } else {
+                        const sv = Math.floor(10 + n * 14);
+                        this.drawPixel('sculk', x, y, sv, sv + 14, sv + 24); // Deep dark navy-black
+                    }
+
+                    // Sculk Catalyst Side (Bone base + sculk top)
+                    if (y >= 9) {
+                        const bv = (x % 3 === 0) ? 165 : 205;
+                        this.drawPixel('sculk_catalyst_side', x, y, bv, bv - 5, bv - 20);
+                    } else {
+                        this.drawPixel('sculk_catalyst_side', x, y, isStar ? 40 : 14, isStar ? 225 : 30, isStar ? 235 : 42);
+                    }
+                    // Sculk Catalyst Top (Glowing soul bloom)
+                    const dist = Math.sqrt((x - 7.5) * (x - 7.5) + (y - 7.5) * (y - 7.5));
+                    if (dist < 4.5) {
+                        this.drawPixel('sculk_catalyst_top', x, y, 45, 230, 240);
+                    } else {
+                        this.drawPixel('sculk_catalyst_top', x, y, 16, 35, 48);
+                    }
+
+                    // Sculk Shrieker
+                    const isHorn = (y < 6 && (x <= 3 || x >= 12));
+                    const isSoulCore = (x >= 5 && x <= 10 && y >= 5 && y <= 10);
+                    if (isHorn) {
+                        this.drawPixel('sculk_shrieker_side', x, y, 215, 215, 195);
+                    } else if (isSoulCore) {
+                        this.drawPixel('sculk_shrieker_side', x, y, 35, 210, 235);
+                    } else {
+                        this.drawPixel('sculk_shrieker_side', x, y, 15, 32, 44);
+                    }
+                    this.drawPixel('sculk_shrieker_top', x, y, dist < 5 ? 45 : 195, dist < 5 ? 225 : 195, dist < 5 ? 240 : 175);
+                }
+            }
+
+            // ★ 44. SOUL LANTERN, STONE BRICKS, GLOWSTONE
+            const rngGlow = createRNG(6543);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    // Soul Lantern
+                    if (x >= 4 && x <= 11 && y >= 4 && y <= 14) {
+                        const isIronFrame = (x === 4 || x === 11 || y === 4 || y === 14);
+                        if (isIronFrame) {
+                            this.drawPixel('soul_lantern', x, y, 55, 65, 75, 255);
+                        } else {
+                            this.drawPixel('soul_lantern', x, y, 70, 235, 255, 255); // Bright soul fire cyan
+                        }
+                    } else if (x >= 7 && x <= 8 && y >= 1 && y <= 3) {
+                        this.drawPixel('soul_lantern', x, y, 65, 70, 80, 255); // Chain
+                    } else {
+                        this.drawPixel('soul_lantern', x, y, 0, 0, 0, 0);
+                    }
+
+                    // Stone Bricks
+                    const isSBMortar = (y % 8 === 0) || (y < 8 && x % 8 === 0) || (y >= 8 && (x + 4) % 8 === 0);
+                    const n = rngGlow();
+                    const sbv = isSBMortar ? 75 : Math.floor(130 + n * 25);
+                    this.drawPixel('stone_bricks', x, y, sbv, sbv, sbv);
+
+                    // Glowstone
+                    const gv = n > 0.65 ? 255 : (n > 0.3 ? 215 : 160);
+                    this.drawPixel('glowstone', x, y, gv, Math.floor(gv * 0.85), Math.floor(gv * 0.45));
+                }
+            }
+
+            // ★ 45. FIRE, NETHER PORTAL, SAPLING, LADDER, BED
+            const rngExtra = createRNG(4321);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const n = rngExtra();
+
+                    // Fire (Cross-model flickering flame)
+                    const flameH = 4 + Math.floor(Math.sin(x * 0.9) * 3 + n * 4);
+                    if (y >= flameH && x >= 2 && x <= 13) {
+                        if (y > 11 && x >= 5 && x <= 10) {
+                            this.drawPixel('fire', x, y, 255, 245, 110, 255); // Bright yellow core
+                        } else if (y > 8) {
+                            this.drawPixel('fire', x, y, 255, 150, 25, 245); // Orange flame
+                        } else {
+                            this.drawPixel('fire', x, y, 235, 55, 15, 220); // Red tips
+                        }
+                    } else {
+                        this.drawPixel('fire', x, y, 0, 0, 0, 0);
+                    }
+
+                    // Nether Portal (Swirling purple vortex)
+                    const swirl = Math.sin((x - 7.5) * 0.6 + (y - 7.5) * 0.6);
+                    this.drawPixel('nether_portal', x, y, Math.floor(155 + swirl * 60), 25, Math.floor(225 + swirl * 30), 210);
+
+                    // Oak Sapling
+                    if (x >= 7 && x <= 8 && y >= 10 && y <= 15) {
+                        this.drawPixel('sapling', x, y, 115, 78, 42, 255);
+                    } else if (x >= 4 && x <= 11 && y >= 4 && y <= 10 && ((x + y) % 2 === 0 || n > 0.4)) {
+                        this.drawPixel('sapling', x, y, 55, 165, 45, 255);
+                    } else {
+                        this.drawPixel('sapling', x, y, 0, 0, 0, 0);
+                    }
+
+                    // Ladder
+                    const isRail = (x === 3 || x === 4 || x === 11 || x === 12);
+                    const isRung = (y % 4 === 1 || y % 4 === 2) && (x >= 3 && x <= 12);
+                    if (isRail || isRung) {
+                        this.drawPixel('ladder', x, y, 155, 115, 65, 255);
+                    } else {
+                        this.drawPixel('ladder', x, y, 0, 0, 0, 0);
+                    }
+
+                    // Bed (Red blanket + white pillow + wood base)
+                    if (y < 5) {
+                        this.drawPixel('bed_top', x, y, 240, 240, 245); // Pillow
+                    } else {
+                        this.drawPixel('bed_top', x, y, 200, 35, 35); // Red blanket
+                    }
+                    if (y >= 11) {
+                        this.drawPixel('bed_side', x, y, 155, 115, 65); // Wood frame
+                    } else {
+                        this.drawPixel('bed_side', x, y, x < 5 ? 240 : 200, x < 5 ? 240 : 35, x < 5 ? 245 : 35);
+                    }
+                }
+            }
+
+            // ★ 46. WOOLS, MOSSY COBBLE, SANDSTONE, NETHERRACK, SOUL SAND, CRYING OBSIDIAN, AMETHYST, COPPER, LAMP, MINERAL BLOCKS
+            const rngMat = createRNG(9876);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const n = rngMat();
+                    const wv = Math.floor(225 + n * 25);
+                    this.drawPixel('wool_white', x, y, wv, wv, wv);
+                    this.drawPixel('wool_red', x, y, Math.floor(185 + n * 35), 32, 32);
+                    this.drawPixel('wool_blue', x, y, 35, 65, Math.floor(185 + n * 40));
+
+                    // Mossy Cobblestone
+                    const isMoss = (n > 0.58);
+                    const cv = Math.floor(95 + n * 35);
+                    this.drawPixel('mossy_cobblestone', x, y, isMoss ? 55 : cv, isMoss ? 135 : cv, isMoss ? 42 : cv);
+
+                    // Sandstone
+                    const sv = (y < 3) ? 230 : Math.floor(210 + n * 20);
+                    this.drawPixel('sandstone', x, y, sv, sv - 15, sv - 65);
+
+                    // Netherrack
+                    this.drawPixel('netherrack', x, y, Math.floor(105 + n * 45), Math.floor(35 + n * 20), Math.floor(35 + n * 20));
+
+                    // Soul Sand
+                    this.drawPixel('soul_sand', x, y, Math.floor(70 + n * 25), Math.floor(52 + n * 20), Math.floor(42 + n * 16));
+
+                    // Crying Obsidian
+                    const isCry = (n > 0.78);
+                    this.drawPixel('crying_obsidian', x, y, isCry ? 165 : 24, isCry ? 45 : 14, isCry ? 255 : 42);
+
+                    // Amethyst Block
+                    this.drawPixel('amethyst_block', x, y, Math.floor(135 + n * 55), Math.floor(75 + n * 40), Math.floor(205 + n * 45));
+
+                    // Copper Block
+                    const isBorder = (x === 0 || x === 15 || y === 0 || y === 15);
+                    this.drawPixel('copper_block', x, y, isBorder ? 165 : 205, isBorder ? 85 : 112, isBorder ? 55 : 75);
+
+                    // Redstone Lamp
+                    const isLampFrame = (x === 0 || x === 15 || y === 0 || y === 15 || x === y || x + y === 15);
+                    this.drawPixel('redstone_lamp', x, y, isLampFrame ? 75 : 250, isLampFrame ? 45 : 210, isLampFrame ? 25 : 115);
+
+                    // Redstone, Emerald, Lapis, Netherite Blocks
+                    this.drawPixel('redstone_block', x, y, isBorder ? 155 : 215, 22, 18);
+                    this.drawPixel('emerald_block', x, y, 25, isBorder ? 165 : 225, isBorder ? 65 : 95);
+                    this.drawPixel('lapis_block', x, y, 28, 55, isBorder ? 155 : 205);
+                    this.drawPixel('netherite_block', x, y, isBorder ? 45 : 68, isBorder ? 40 : 62, isBorder ? 48 : 70);
+                }
+            }
         }
 
         // Returns UV mapping object for a block type
@@ -714,6 +936,68 @@
                 case B.JUMP_PAD.id:
                     return { top: 'jump_pad', bottom: 'stone', side: 'stone' };
 
+                // ★ ディープダーク・古代都市 & 追加バニラブロック
+                case B.DEEPSLATE?.id:
+                    return { all: 'deepslate' };
+                case B.DEEPSLATE_BRICKS?.id:
+                    return { all: 'deepslate_bricks' };
+                case B.DEEPSLATE_TILES?.id:
+                    return { all: 'deepslate_tiles' };
+                case B.REINFORCED_DEEPSLATE?.id:
+                    return { top: 'reinforced_deepslate_top', bottom: 'deepslate', side: 'reinforced_deepslate_side' };
+                case B.SCULK?.id:
+                    return { all: 'sculk' };
+                case B.SCULK_CATALYST?.id:
+                    return { top: 'sculk_catalyst_top', bottom: 'sculk', side: 'sculk_catalyst_side' };
+                case B.SCULK_SHRIEKER?.id:
+                    return { top: 'sculk_shrieker_top', bottom: 'sculk', side: 'sculk_shrieker_side' };
+                case B.SOUL_LANTERN?.id:
+                    return { all: 'soul_lantern' };
+                case B.STONE_BRICKS?.id:
+                    return { all: 'stone_bricks' };
+                case B.GLOWSTONE?.id:
+                    return { all: 'glowstone' };
+                case B.FIRE?.id:
+                    return { all: 'fire' };
+                case B.NETHER_PORTAL?.id:
+                    return { all: 'nether_portal' };
+                case B.WOOL_WHITE?.id:
+                    return { all: 'wool_white' };
+                case B.WOOL_RED?.id:
+                    return { all: 'wool_red' };
+                case B.WOOL_BLUE?.id:
+                    return { all: 'wool_blue' };
+                case B.MOSSY_COBBLESTONE?.id:
+                    return { all: 'mossy_cobblestone' };
+                case B.SANDSTONE?.id:
+                    return { all: 'sandstone' };
+                case B.NETHERRACK?.id:
+                    return { all: 'netherrack' };
+                case B.SOUL_SAND?.id:
+                    return { all: 'soul_sand' };
+                case B.CRYING_OBSIDIAN?.id:
+                    return { all: 'crying_obsidian' };
+                case B.AMETHYST_BLOCK?.id:
+                    return { all: 'amethyst_block' };
+                case B.COPPER_BLOCK?.id:
+                    return { all: 'copper_block' };
+                case B.REDSTONE_LAMP?.id:
+                    return { all: 'redstone_lamp' };
+                case B.LADDER?.id:
+                    return { all: 'ladder' };
+                case B.SAPLING?.id:
+                    return { all: 'sapling' };
+                case B.BED?.id:
+                    return { top: 'bed_top', bottom: 'oak_planks', side: 'bed_side' };
+                case B.REDSTONE_BLOCK?.id:
+                    return { all: 'redstone_block' };
+                case B.EMERALD_BLOCK?.id:
+                    return { all: 'emerald_block' };
+                case B.LAPIS_BLOCK?.id:
+                    return { all: 'lapis_block' };
+                case B.NETHERITE_BLOCK?.id:
+                    return { all: 'netherite_block' };
+
                 default:
                     return { all: 'stone' };
             }
@@ -763,112 +1047,336 @@
             uvAttr.needsUpdate = true;
         }
 
-        // Generate and cache pixel-art DataURL for any item (Blocks, Tools, Items, Custom)
+        // Generate and cache crisp 64x64 3D Isometric Block & Outlined Pixel-Art Item Icons
         getItemIconDataURL(itemKey) {
             if (!this.iconCache) this.iconCache = {};
             if (this.iconCache[itemKey]) return this.iconCache[itemKey];
 
             const c = document.createElement('canvas');
-            c.width = 16;
-            c.height = 16;
+            c.width = 64;
+            c.height = 64;
             const ctx = c.getContext('2d');
             ctx.imageSmoothingEnabled = false;
 
             const itemDef = window.ITEMS[itemKey];
+            const blockDef = itemDef?.blockId ? window.BLOCK_BY_ID[itemDef.blockId] : null;
+            const isFlatBlock = blockDef && (
+                blockDef.crossModel ||
+                itemKey === 'torch' ||
+                itemKey === 'healing_torch' ||
+                itemKey === 'soul_lantern' ||
+                itemKey === 'ladder' ||
+                itemKey === 'fire' ||
+                itemKey === 'nether_portal'
+            );
 
-            if (itemDef?.blockId) {
-                // Draw Block texture from Atlas
+            if (itemDef?.blockId && !isFlatBlock) {
+                // ★ Authentic 3D Isometric Cube Icon for Blocks!
                 const uvMap = this.getBlockUVs(itemDef.blockId);
-                const slotName = uvMap.side || uvMap.all || uvMap.top || 'stone';
-                const slot = TEXTURE_SLOTS[slotName] ?? 0;
-                const sx = (slot % ATLAS_SLOTS_X) * TEX_SIZE;
-                const sy = Math.floor(slot / ATLAS_SLOTS_X) * TEX_SIZE;
-                ctx.drawImage(this.canvas, sx, sy, 16, 16, 0, 0, 16, 16);
-            } else {
-                // Draw 2D Minecraft Pixel Art Item
-                let matColor = '#ffffff';
-                if (itemKey.includes('wooden') || itemKey.includes('wood')) matColor = '#9c6b3e';
-                else if (itemKey.includes('stone') || itemKey.includes('cobble')) matColor = '#8a8a8a';
-                else if (itemKey.includes('iron')) matColor = '#d8d8d8';
-                else if (itemKey.includes('gold')) matColor = '#fcee4b';
-                else if (itemKey.includes('diamond')) matColor = '#4eeded';
-                else if (itemKey.includes('astral')) matColor = '#df44ff';
-                else if (itemKey.includes('laser')) matColor = '#33eeff';
+                const topName = uvMap.top || uvMap.all || uvMap.side || 'stone';
+                const leftName = uvMap.front || uvMap.side || uvMap.all || 'stone';
+                const rightName = uvMap.side || uvMap.all || uvMap.front || 'stone';
 
-                if (itemKey.includes('pickaxe') || itemKey.includes('drill')) {
-                    // Pickaxe
-                    ctx.fillStyle = '#6d4c28'; // Stick
-                    for (let i = 4; i < 13; i++) ctx.fillRect(i, 16 - i, 1, 1);
-                    ctx.fillStyle = matColor; // Head
-                    ctx.fillRect(2, 2, 8, 2);
-                    ctx.fillRect(2, 4, 2, 4);
-                    ctx.fillRect(8, 2, 4, 2);
-                } else if (itemKey.includes('sword') || itemKey.includes('blade')) {
-                    // Sword
-                    ctx.fillStyle = '#6d4c28'; // Handle
-                    ctx.fillRect(3, 12, 2, 2);
-                    ctx.fillStyle = '#444444'; // Guard
-                    ctx.fillRect(4, 10, 4, 1);
-                    ctx.fillRect(3, 11, 1, 4);
-                    ctx.fillStyle = matColor; // Blade
-                    for (let i = 0; i < 7; i++) {
-                        ctx.fillRect(6 + i, 8 - i, 2, 2);
-                    }
-                } else if (itemKey.includes('axe')) {
-                    // Axe
-                    ctx.fillStyle = '#6d4c28';
-                    for (let i = 4; i < 13; i++) ctx.fillRect(i, 16 - i, 1, 1);
-                    ctx.fillStyle = matColor;
-                    ctx.fillRect(2, 2, 6, 5);
-                } else if (itemKey.includes('shovel')) {
-                    // Shovel
-                    ctx.fillStyle = '#6d4c28';
-                    for (let i = 4; i < 13; i++) ctx.fillRect(i, 16 - i, 1, 1);
-                    ctx.fillStyle = matColor;
-                    ctx.fillRect(9, 2, 5, 5);
-                } else if (itemKey.includes('apple')) {
-                    // Apple
-                    ctx.fillStyle = itemKey.includes('gold') ? '#fcee4b' : '#d82222';
-                    ctx.fillRect(4, 4, 8, 8);
-                    ctx.fillStyle = '#449922'; // Leaf
-                    ctx.fillRect(7, 2, 2, 2);
-                } else if (itemKey.includes('beef') || itemKey.includes('meat')) {
-                    // Steak / Beef
-                    ctx.fillStyle = itemKey.includes('cooked') ? '#7d3820' : '#b22222';
-                    ctx.fillRect(3, 4, 10, 8);
-                    ctx.fillStyle = '#ffffff'; // Bone tip
-                    ctx.fillRect(11, 3, 2, 2);
-                } else if (itemKey.includes('bread')) {
-                    // Bread
-                    ctx.fillStyle = '#c68a4c';
-                    ctx.fillRect(2, 6, 12, 5);
-                } else if (itemKey.includes('crystal') || itemKey.includes('diamond') || itemKey.includes('emerald')) {
-                    // Gem
-                    ctx.fillStyle = matColor;
-                    ctx.fillRect(6, 3, 4, 10);
-                    ctx.fillRect(4, 5, 8, 6);
-                } else if (itemKey.includes('ingot')) {
-                    // Ingot
-                    ctx.fillStyle = matColor;
-                    ctx.fillRect(3, 7, 10, 4);
-                    ctx.fillRect(5, 5, 6, 2);
-                } else if (itemKey.includes('boots')) {
-                    // Boots
-                    ctx.fillStyle = matColor;
-                    ctx.fillRect(3, 6, 3, 6); ctx.fillRect(2, 10, 4, 2);
-                    ctx.fillRect(10, 6, 3, 6); ctx.fillRect(9, 10, 4, 2);
-                } else if (itemKey.includes('jetpack')) {
-                    // Jetpack
-                    ctx.fillStyle = '#666666';
-                    ctx.fillRect(3, 4, 4, 8);
-                    ctx.fillRect(9, 4, 4, 8);
-                    ctx.fillStyle = '#ff5500'; // Thruster flame
-                    ctx.fillRect(4, 12, 2, 3);
-                    ctx.fillRect(10, 12, 2, 3);
+                const getSlotCoords = (name) => {
+                    const s = TEXTURE_SLOTS[name] ?? 0;
+                    return {
+                        sx: (s % ATLAS_SLOTS_X) * TEX_SIZE,
+                        sy: Math.floor(s / ATLAS_SLOTS_X) * TEX_SIZE
+                    };
+                };
+                const topC = getSlotCoords(topName);
+                const leftC = getSlotCoords(leftName);
+                const rightC = getSlotCoords(rightName);
+
+                // 1. Top Diamond Face
+                ctx.save();
+                ctx.setTransform(1.5, 0.75, -1.5, 0.75, 32, 6);
+                ctx.drawImage(this.canvas, topC.sx, topC.sy, 16, 16, 0, 0, 16, 16);
+                ctx.restore();
+
+                // 2. Front-Left Face (Slightly shaded)
+                ctx.save();
+                ctx.setTransform(1.5, 0.75, 0, 1.65, 8, 18);
+                ctx.drawImage(this.canvas, leftC.sx, leftC.sy, 16, 16, 0, 0, 16, 16);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+                ctx.fillRect(0, 0, 16, 16);
+                ctx.restore();
+
+                // 3. Front-Right Face (Shaded for 3D depth)
+                ctx.save();
+                ctx.setTransform(1.5, -0.75, 0, 1.65, 32, 30);
+                ctx.drawImage(this.canvas, rightC.sx, rightC.sy, 16, 16, 0, 0, 16, 16);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+                ctx.fillRect(0, 0, 16, 16);
+                ctx.restore();
+
+                // 4. Crisp 3D Isometric Cube Outline & Inner Edges
+                ctx.strokeStyle = 'rgba(15, 15, 20, 0.85)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(32, 6);
+                ctx.lineTo(56, 18);
+                ctx.lineTo(56, 44.4);
+                ctx.lineTo(32, 56.4);
+                ctx.lineTo(8, 44.4);
+                ctx.lineTo(8, 18);
+                ctx.closePath();
+                ctx.stroke();
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(8, 18);
+                ctx.lineTo(32, 30);
+                ctx.lineTo(56, 18);
+                ctx.moveTo(32, 30);
+                ctx.lineTo(32, 56.4);
+                ctx.stroke();
+
+                // Extra bold badge for TNT so it's 100% unmistakable
+                if (itemKey === 'tnt' || itemKey === 'cluster_tnt') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(14, 26, 36, 14);
+                    ctx.strokeStyle = '#111111';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(14, 26, 36, 14);
+                    ctx.fillStyle = itemKey === 'cluster_tnt' ? '#9900cc' : '#dd1111';
+                    ctx.font = 'bold 13px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('TNT', 32, 33.5);
+                }
+            } else {
+                // Draw 16x16 Pixel Art onto offscreen buffer, then render with crisp dark outline at 64x64!
+                const off = document.createElement('canvas');
+                off.width = 16;
+                off.height = 16;
+                const octx = off.getContext('2d');
+                octx.imageSmoothingEnabled = false;
+
+                if (itemDef?.blockId && isFlatBlock) {
+                    const uvMap = this.getBlockUVs(itemDef.blockId);
+                    const slotName = uvMap.side || uvMap.all || uvMap.top || 'stone';
+                    const slot = TEXTURE_SLOTS[slotName] ?? 0;
+                    const sx = (slot % ATLAS_SLOTS_X) * TEX_SIZE;
+                    const sy = Math.floor(slot / ATLAS_SLOTS_X) * TEX_SIZE;
+                    octx.drawImage(this.canvas, sx, sy, 16, 16, 0, 0, 16, 16);
                 } else {
-                    // Generic material / stick
-                    ctx.fillStyle = '#8b5a2b';
-                    for (let i = 3; i < 13; i++) ctx.fillRect(i, 16 - i, 2, 2);
+                    let matColor = '#ffffff';
+                    if (itemKey.includes('wooden') || itemKey.includes('wood')) matColor = '#b57c42';
+                    else if (itemKey.includes('stone') || itemKey.includes('cobble')) matColor = '#9e9e9e';
+                    else if (itemKey.includes('iron')) matColor = '#eef2f6';
+                    else if (itemKey.includes('gold')) matColor = '#ffe838';
+                    else if (itemKey.includes('diamond')) matColor = '#44f5f5';
+                    else if (itemKey.includes('netherite')) matColor = '#5e5062';
+                    else if (itemKey.includes('astral')) matColor = '#e655ff';
+                    else if (itemKey.includes('laser')) matColor = '#33eeff';
+
+                    if (itemKey === 'flint_and_steel') {
+                        // ★ Unmistakable Flint & Steel (着火石): Steel C-Striker + Dark Flint + Bright Flame Spark!
+                        // 1. Bright Steel C-Striker (Left)
+                        octx.fillStyle = '#e8eef5';
+                        octx.fillRect(1, 3, 6, 2);
+                        octx.fillRect(1, 5, 2, 6);
+                        octx.fillRect(1, 11, 6, 2);
+                        octx.fillStyle = '#9aa6b5';
+                        octx.fillRect(2, 4, 4, 1);
+                        octx.fillRect(2, 11, 4, 1);
+
+                        // 2. Glossy Dark Flint Stone (Bottom-Right)
+                        octx.fillStyle = '#24242c';
+                        octx.fillRect(8, 7, 7, 7);
+                        octx.fillStyle = '#525264';
+                        octx.fillRect(9, 8, 4, 4);
+                        octx.fillStyle = '#8888a0';
+                        octx.fillRect(10, 8, 2, 2);
+
+                        // 3. Vivid Igniting Flame & Sparks (Top-Right / Center)
+                        octx.fillStyle = '#ff3300';
+                        octx.fillRect(7, 1, 5, 5);
+                        octx.fillStyle = '#ff9900';
+                        octx.fillRect(8, 2, 3, 4);
+                        octx.fillStyle = '#ffff44';
+                        octx.fillRect(9, 3, 2, 2);
+                    } else if (itemKey === 'flint') {
+                        octx.fillStyle = '#26262e';
+                        octx.fillRect(4, 2, 8, 12);
+                        octx.fillRect(3, 5, 10, 7);
+                        octx.fillStyle = '#5e5e6e';
+                        octx.fillRect(5, 4, 4, 5);
+                    } else if (itemKey === 'fire_charge') {
+                        octx.fillStyle = '#cc2200';
+                        octx.fillRect(2, 2, 12, 12);
+                        octx.fillStyle = '#ff7700';
+                        octx.fillRect(4, 4, 8, 8);
+                        octx.fillStyle = '#ffff55';
+                        octx.fillRect(6, 6, 4, 4);
+                    } else if (itemKey.includes('bucket')) {
+                        octx.fillStyle = '#d4d8e0';
+                        octx.fillRect(2, 4, 12, 8);
+                        octx.fillRect(4, 12, 8, 3);
+                        octx.fillStyle = '#8e94a0';
+                        octx.fillRect(3, 8, 10, 4);
+                        if (itemKey === 'water_bucket') {
+                            octx.fillStyle = '#1e78ff';
+                            octx.fillRect(3, 4, 10, 4);
+                            octx.fillStyle = '#77bbff';
+                            octx.fillRect(5, 5, 5, 2);
+                        } else if (itemKey === 'lava_bucket') {
+                            octx.fillStyle = '#ff4400';
+                            octx.fillRect(3, 4, 10, 4);
+                            octx.fillStyle = '#ffcc22';
+                            octx.fillRect(5, 5, 5, 2);
+                        } else {
+                            octx.fillStyle = '#444852';
+                            octx.fillRect(3, 4, 10, 3);
+                        }
+                    } else if (itemKey === 'bow') {
+                        octx.fillStyle = '#9c6228';
+                        octx.fillRect(4, 1, 3, 3);
+                        octx.fillRect(2, 4, 3, 8);
+                        octx.fillRect(4, 12, 3, 3);
+                        octx.fillStyle = '#ffffff'; // Bowstring
+                        octx.fillRect(7, 2, 2, 12);
+                        // Arrow loaded on bow for unmistakable silhouette
+                        octx.fillStyle = '#c88c4b';
+                        octx.fillRect(3, 7, 9, 2);
+                        octx.fillStyle = '#e8eef5';
+                        octx.fillRect(11, 6, 3, 4);
+                    } else if (itemKey === 'arrow') {
+                        octx.fillStyle = '#9c6228';
+                        for (let i = 3; i < 12; i++) octx.fillRect(i, 15 - i, 2, 2);
+                        octx.fillStyle = '#e8eef5'; // Arrowhead
+                        octx.fillRect(10, 2, 4, 4);
+                        octx.fillStyle = '#ffffff'; // Feather fletching
+                        octx.fillRect(2, 10, 4, 4);
+                    } else if (itemKey === 'shears') {
+                        octx.fillStyle = '#cc3322';
+                        octx.fillRect(2, 10, 4, 4); octx.fillRect(7, 11, 4, 4);
+                        octx.fillStyle = '#e8eef5';
+                        octx.fillRect(5, 3, 3, 7); octx.fillRect(8, 5, 6, 3);
+                    } else if (itemKey === 'ender_pearl') {
+                        octx.fillStyle = '#0e5248';
+                        octx.fillRect(3, 3, 10, 10);
+                        octx.fillStyle = '#22c8ab';
+                        octx.fillRect(4, 4, 8, 8);
+                        octx.fillStyle = '#aaffee';
+                        octx.fillRect(6, 5, 3, 3);
+                    } else if (itemKey === 'spyglass') {
+                        octx.fillStyle = '#e08035';
+                        octx.fillRect(3, 9, 5, 5);
+                        octx.fillRect(6, 6, 5, 5);
+                        octx.fillStyle = '#b055ff';
+                        octx.fillRect(10, 2, 4, 4);
+                    } else if (itemKey === 'compass' || itemKey === 'clock') {
+                        octx.fillStyle = (itemKey === 'clock') ? '#ffe838' : '#c8d0dc';
+                        octx.fillRect(2, 2, 12, 12);
+                        octx.fillStyle = '#22242a';
+                        octx.fillRect(4, 4, 8, 8);
+                        octx.fillStyle = (itemKey === 'clock') ? '#44bbff' : '#ff2222';
+                        octx.fillRect(7, 4, 2, 5);
+                    } else if (itemKey.includes('pickaxe') || itemKey.includes('drill')) {
+                        octx.fillStyle = '#8b5a2b'; // Stick
+                        for (let i = 3; i < 13; i++) octx.fillRect(i, 15 - i, 2, 2);
+                        octx.fillStyle = matColor; // Head
+                        octx.fillRect(2, 2, 10, 3);
+                        octx.fillRect(2, 5, 3, 5);
+                        octx.fillRect(11, 4, 3, 4);
+                    } else if (itemKey.includes('sword') || itemKey.includes('blade')) {
+                        octx.fillStyle = '#8b5a2b'; // Handle
+                        octx.fillRect(2, 12, 3, 3);
+                        octx.fillStyle = '#555560'; // Guard
+                        octx.fillRect(3, 9, 6, 2);
+                        octx.fillRect(3, 10, 2, 5);
+                        octx.fillStyle = matColor; // Blade
+                        for (let i = 0; i < 8; i++) {
+                            octx.fillRect(5 + i, 9 - i, 3, 3);
+                        }
+                    } else if (itemKey.includes('axe')) {
+                        octx.fillStyle = '#8b5a2b';
+                        for (let i = 3; i < 13; i++) octx.fillRect(i, 15 - i, 2, 2);
+                        octx.fillStyle = matColor;
+                        octx.fillRect(2, 2, 7, 6);
+                    } else if (itemKey.includes('shovel')) {
+                        octx.fillStyle = '#8b5a2b';
+                        for (let i = 3; i < 12; i++) octx.fillRect(i, 15 - i, 2, 2);
+                        octx.fillStyle = matColor;
+                        octx.fillRect(9, 2, 5, 5);
+                    } else if (itemKey.includes('apple')) {
+                        octx.fillStyle = itemKey.includes('enchanted') ? '#d866ff' : (itemKey.includes('gold') ? '#ffe838' : '#ee2222');
+                        octx.fillRect(3, 4, 10, 10);
+                        octx.fillStyle = '#44bb22'; // Leaf
+                        octx.fillRect(7, 1, 3, 3);
+                    } else if (itemKey.includes('beef') || itemKey.includes('pork') || itemKey.includes('chicken') || itemKey.includes('flesh') || itemKey.includes('fish')) {
+                        octx.fillStyle = itemKey.includes('cooked') ? '#9e4e28' : (itemKey.includes('flesh') ? '#6b4428' : '#e85555');
+                        octx.fillRect(2, 4, 12, 9);
+                        octx.fillStyle = '#ffffff';
+                        octx.fillRect(11, 3, 3, 3);
+                    } else if (itemKey.includes('bread') || itemKey.includes('potato') || itemKey.includes('pie') || itemKey.includes('cookie')) {
+                        octx.fillStyle = '#d89648';
+                        octx.fillRect(2, 5, 12, 7);
+                    } else if (itemKey.includes('carrot') || itemKey.includes('melon')) {
+                        octx.fillStyle = itemKey.includes('carrot') ? '#ff7711' : '#ee3333';
+                        octx.fillRect(3, 3, 10, 10);
+                    } else if (itemKey.includes('crystal') || itemKey.includes('diamond') || itemKey.includes('emerald') || itemKey.includes('shard')) {
+                        octx.fillStyle = itemKey.includes('shard') ? '#22d8e8' : (itemKey === 'emerald' ? '#22dd66' : matColor);
+                        octx.fillRect(5, 2, 6, 12);
+                        octx.fillRect(3, 4, 10, 8);
+                    } else if (itemKey.includes('ingot')) {
+                        octx.fillStyle = matColor;
+                        octx.fillRect(2, 6, 12, 6);
+                        octx.fillRect(4, 4, 8, 2);
+                    } else if (itemKey.includes('boots')) {
+                        octx.fillStyle = matColor;
+                        octx.fillRect(2, 5, 4, 8); octx.fillRect(1, 10, 5, 3);
+                        octx.fillRect(10, 5, 4, 8); octx.fillRect(9, 10, 5, 3);
+                    } else if (itemKey.includes('jetpack')) {
+                        octx.fillStyle = '#77808a';
+                        octx.fillRect(2, 3, 5, 9);
+                        octx.fillRect(9, 3, 5, 9);
+                        octx.fillStyle = '#ff5500';
+                        octx.fillRect(3, 12, 3, 3);
+                        octx.fillRect(10, 12, 3, 3);
+                    } else if (itemKey === 'bone' || itemKey === 'feather') {
+                        octx.fillStyle = '#f5f5fa';
+                        for (let i = 3; i < 13; i++) octx.fillRect(i, 15 - i, 3, 3);
+                    } else if (itemKey === 'gunpowder' || itemKey === 'bone_meal' || itemKey === 'coal' || itemKey === 'redstone') {
+                        octx.fillStyle = itemKey === 'bone_meal' ? '#ffffff' : (itemKey === 'redstone' ? '#ff2222' : '#33333a');
+                        octx.fillRect(3, 4, 10, 9);
+                        octx.fillRect(5, 2, 6, 3);
+                    } else {
+                        octx.fillStyle = '#9c6228';
+                        for (let i = 3; i < 13; i++) octx.fillRect(i, 15 - i, 3, 3);
+                    }
+                }
+
+                // Draw crisp 2px dark silhouette outline around the 16x16 sprite scaled to 48x48 centered in 64x64
+                const sil = document.createElement('canvas');
+                sil.width = 16;
+                sil.height = 16;
+                const sctx = sil.getContext('2d');
+                sctx.drawImage(off, 0, 0);
+                sctx.globalCompositeOperation = 'source-in';
+                sctx.fillStyle = '#141418';
+                sctx.fillRect(0, 0, 16, 16);
+
+                const offsets = [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2]];
+                offsets.forEach(([ox, oy]) => {
+                    ctx.drawImage(sil, 0, 0, 16, 16, 8 + ox, 8 + oy, 48, 48);
+                });
+                ctx.drawImage(off, 0, 0, 16, 16, 8, 8, 48, 48);
+
+                if (itemKey === 'flint_and_steel') {
+                    ctx.fillStyle = '#ff6600';
+                    ctx.fillRect(10, 4, 44, 15);
+                    ctx.strokeStyle = '#111111';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(10, 4, 44, 15);
+                    ctx.fillStyle = '#ffff55';
+                    ctx.font = 'bold 11px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🔥着火', 32, 11.5);
                 }
             }
 

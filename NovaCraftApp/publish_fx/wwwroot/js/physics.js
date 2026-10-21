@@ -40,41 +40,56 @@
             return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
         }
 
+        intersects(other) {
+            const EPS = 0.001;
+            return (
+                this.maxX > other.minX + EPS &&
+                this.minX < other.maxX - EPS &&
+                this.maxY > other.minY + EPS &&
+                this.minY < other.maxY - EPS &&
+                this.maxZ > other.minZ + EPS &&
+                this.minZ < other.maxZ - EPS
+            );
+        }
+
         // Authentic Minecraft Axis-Aligned Collision Clipping
         clipXCollide(c, dx) {
-            if (this.maxY <= c.minY || this.minY >= c.maxY) return dx;
-            if (this.maxZ <= c.minZ || this.minZ >= c.maxZ) return dx;
-            if (dx > 0.0 && this.maxX <= c.minX) {
-                const max = c.minX - this.maxX;
+            const EPS = 0.0001;
+            if (this.maxY <= c.minY + EPS || this.minY >= c.maxY - EPS) return dx;
+            if (this.maxZ <= c.minZ + EPS || this.minZ >= c.maxZ - EPS) return dx;
+            if (dx > 0.0 && this.maxX <= c.minX + EPS) {
+                const max = Math.max(0.0, c.minX - this.maxX);
                 if (max < dx) dx = max;
-            } else if (dx < 0.0 && this.minX >= c.maxX) {
-                const max = c.maxX - this.minX;
+            } else if (dx < 0.0 && this.minX >= c.maxX - EPS) {
+                const max = Math.min(0.0, c.maxX - this.minX);
                 if (max > dx) dx = max;
             }
             return dx;
         }
 
         clipYCollide(c, dy) {
-            if (this.maxX <= c.minX || this.minX >= c.maxX) return dy;
-            if (this.maxZ <= c.minZ || this.minZ >= c.maxZ) return dy;
-            if (dy > 0.0 && this.maxY <= c.minY) {
-                const max = c.minY - this.maxY;
+            const EPS = 0.0001;
+            if (this.maxX <= c.minX + EPS || this.minX >= c.maxX - EPS) return dy;
+            if (this.maxZ <= c.minZ + EPS || this.minZ >= c.maxZ - EPS) return dy;
+            if (dy > 0.0 && this.maxY <= c.minY + EPS) {
+                const max = Math.max(0.0, c.minY - this.maxY);
                 if (max < dy) dy = max;
-            } else if (dy < 0.0 && this.minY >= c.maxY) {
-                const max = c.maxY - this.minY;
+            } else if (dy < 0.0 && this.minY >= c.maxY - EPS) {
+                const max = Math.min(0.0, c.maxY - this.minY);
                 if (max > dy) dy = max;
             }
             return dy;
         }
 
         clipZCollide(c, dz) {
-            if (this.maxX <= c.minX || this.minX >= c.maxX) return dz;
-            if (this.maxY <= c.minY || this.minY >= c.maxY) return dz;
-            if (dz > 0.0 && this.maxZ <= c.minZ) {
-                const max = c.minZ - this.maxZ;
+            const EPS = 0.0001;
+            if (this.maxX <= c.minX + EPS || this.minX >= c.maxX - EPS) return dz;
+            if (this.maxY <= c.minY + EPS || this.minY >= c.maxY - EPS) return dz;
+            if (dz > 0.0 && this.maxZ <= c.minZ + EPS) {
+                const max = Math.max(0.0, c.minZ - this.maxZ);
                 if (max < dz) dz = max;
-            } else if (dz < 0.0 && this.minZ >= c.maxZ) {
-                const max = c.maxZ - this.minZ;
+            } else if (dz < 0.0 && this.minZ >= c.maxZ - EPS) {
+                const max = Math.min(0.0, c.maxZ - this.minZ);
                 if (max > dz) dz = max;
             }
             return dz;
@@ -97,8 +112,6 @@
             const maxY = Math.ceil(box.maxY + 0.5);
             const minZ = Math.floor(box.minZ - 0.5);
             const maxZ = Math.ceil(box.maxZ + 0.5);
-
-            const B = window.BLOCKS;
 
             for (let y = minY; y <= maxY; y++) {
                 for (let z = minZ; z <= maxZ; z++) {
@@ -141,7 +154,7 @@
             }
 
             // Substepping for fast motion (prevent tunneling)
-            const maxStepDist = 0.35;
+            const maxStepDist = 0.30;
             const moveLen = Math.sqrt(origDx * origDx + origDy * origDy + origDz * origDz);
             const steps = Math.max(1, Math.ceil(moveLen / maxStepDist));
 
@@ -191,43 +204,15 @@
             box = box.offset(0, 0, dz);
 
             // Ground and ceiling collision response
-            entity.onGround = (initialDy < 0.0 && dy !== initialDy);
-            if (dy !== initialDy) {
+            entity.onGround = (initialDy < 0.0 && Math.abs(dy - initialDy) > 0.00001);
+            if (Math.abs(dy - initialDy) > 0.00001) {
                 velocity.y = 0.0;
             }
-            if (dx !== initialDx) {
+            if (Math.abs(dx - initialDx) > 0.00001) {
                 velocity.x = 0.0;
             }
-            if (dz !== initialDz) {
+            if (Math.abs(dz - initialDz) > 0.00001) {
                 velocity.z = 0.0;
-            }
-
-            // Step Climbing (Auto-step 0.6 block height when colliding with obstacle)
-            if (entity.onGround && (dx !== initialDx || dz !== initialDz) && !entity.flying) {
-                const stepHeight = 0.6;
-                let stepBox = new AABB(
-                    entity.x - halfW, entity.y + stepHeight, entity.z - halfD,
-                    entity.x + halfW, entity.y + h + stepHeight, entity.z + halfD
-                );
-
-                let stepDx = initialDx;
-                let stepDz = initialDz;
-
-                for (let i = 0; i < colliders.length; i++) {
-                    stepDx = stepBox.clipXCollide(colliders[i].aabb, stepDx);
-                }
-                stepBox = stepBox.offset(stepDx, 0, 0);
-
-                for (let i = 0; i < colliders.length; i++) {
-                    stepDz = stepBox.clipZCollide(colliders[i].aabb, stepDz);
-                }
-
-                // If stepping up allowed us to move further, accept step
-                if (stepDx * stepDx + stepDz * stepDz > dx * dx + dz * dz) {
-                    dx = stepDx;
-                    dz = stepDz;
-                    dy += stepHeight;
-                }
             }
 
             // Apply displacement

@@ -3,7 +3,7 @@
     class SaveManager {
         constructor(game) {
             this.game = game;
-            this.saveKey = 'NovaCraft_Save_Default';
+            this.saveKey = 'NovaCraft_Save_v170';
         }
 
         saveWorld() {
@@ -79,6 +79,9 @@
                     inv.slots = data.inventory.slots || inv.slots;
                     inv.chestSlots = data.inventory.chestSlots || inv.chestSlots;
                     inv.selectedHotbarIndex = data.inventory.selectedIndex || 0;
+                    if (!inv.slots || inv.slots.slice(0, 9).every(s => !s)) {
+                        inv.initDefaultItems();
+                    }
                 }
 
                 // Restore Time

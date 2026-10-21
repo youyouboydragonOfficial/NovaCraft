@@ -35,9 +35,16 @@
         }
 
         initDefaultItems() {
-            // Authentic Vanilla Minecraft Survival starts with an empty inventory!
-            // Player begins with bare hands and gathers resources by punching trees.
             this.slots = new Array(36).fill(null);
+            this.slots[0] = { item: 'grass', count: 64 };
+            this.slots[1] = { item: 'cobblestone', count: 64 };
+            this.slots[2] = { item: 'oak_planks', count: 64 };
+            this.slots[3] = { item: 'tnt', count: 64 };
+            this.slots[4] = { item: 'flint_and_steel', count: 1 };
+            this.slots[5] = { item: 'obsidian', count: 64 };
+            this.slots[6] = { item: 'water_bucket', count: 1 };
+            this.slots[7] = { item: 'diamond_sword', count: 1 };
+            this.slots[8] = { item: 'bow', count: 1 };
 
             // Populate Chest loot (found in Ancient City shrines & Village houses!)
             this.chestSlots = new Array(27).fill(null);

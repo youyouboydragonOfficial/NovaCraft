@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NovaCraft - Ultimate Voxel Sandbox</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=1.7.0">
     <script>
         // Completely disable microphone and speech APIs
         if (navigator.mediaDevices) {
@@ -12,6 +12,54 @@
         }
         window.SpeechRecognition = undefined;
         window.webkitSpeechRecognition = undefined;
+
+        // Guaranteed launch trigger for mode buttons
+        window.isModeSelected = false;
+        window.launchMode = function(mode) {
+            if (window.isModeSelected) return; // Prevent duplicate clicks
+            window.isModeSelected = true;
+            console.log("launchMode triggered for mode:", mode);
+
+            // Disable all mode buttons immediately to prevent duplicate presses
+            const btnSurv = document.getElementById('btn-mode-survival');
+            const btnCreat = document.getElementById('btn-mode-creative');
+            if (btnSurv) {
+                btnSurv.disabled = true;
+                btnSurv.style.opacity = '0.6';
+            }
+            if (btnCreat) {
+                btnCreat.disabled = true;
+                btnCreat.style.opacity = '0.6';
+            }
+
+            const targetBtn = (mode === 'creative') ? btnCreat : btnSurv;
+            if (targetBtn) targetBtn.textContent = '⏳ ワールドへ突入中...';
+
+            // Hide modal overlay immediately
+            const overlay = document.getElementById('modal-overlay');
+            if (overlay) overlay.style.display = 'none';
+
+            if (window.game && window.game.ui) {
+                window.game.gameStarted = true;
+                window.game.ui.selectGameMode(mode);
+            } else {
+                window.pendingMode = mode;
+                const checkInterval = setInterval(() => {
+                    if (window.game && window.game.ui) {
+                        clearInterval(checkInterval);
+                        window.game.gameStarted = true;
+                        window.game.ui.selectGameMode(mode);
+                    }
+                }, 50);
+            }
+        };
+
+        window.showHelpDialog = function() {
+            const helpEl = document.getElementById('help-info-box');
+            if (helpEl) {
+                helpEl.style.display = (helpEl.style.display === 'none' || !helpEl.style.display) ? 'block' : 'none';
+            }
+        };
     </script>
 </head>
 <body>
@@ -24,6 +72,13 @@
     <!-- HUD Overlay -->
     <div id="hud">
         <div id="item-tooltip">NovaCraft</div>
+        <div id="quick-action-bar">
+            <button class="quick-btn" onmousedown="event.stopPropagation(); window.game.pickCreativeItem('grass')">🧱 草ブロック [1]</button>
+            <button class="quick-btn tnt-btn" onmousedown="event.stopPropagation(); window.game.pickCreativeItem('tnt')">💣 TNT爆薬を持つ [4]</button>
+            <button class="quick-btn flint-btn" onmousedown="event.stopPropagation(); window.game.pickCreativeItem('flint_and_steel')">🔥 着火石を持つ [5]</button>
+            <button class="quick-btn detonate-btn" onmousedown="event.stopPropagation(); window.game.detonateAllPlacedTnt()">💥 設置したTNTを起爆！</button>
+            <button class="quick-btn catalog-btn" onmousedown="event.stopPropagation(); window.game.ui.openModal('creative')">📦 全アイテム一覧 [E]</button>
+        </div>
         <div id="oxygen-container"></div>
         <div class="status-bars">
             <div id="hearts"></div>
@@ -53,9 +108,18 @@
             <div class="title-logo">NOVACRAFT</div>
             <div class="title-subtitle">Infinite Voxel Sandbox Edition</div>
             <div class="title-buttons">
-                <button class="mc-button" style="background: #337733; font-weight: bold; font-size: 16px;" onclick="window.game.ui.selectGameMode('survival')">⚔️ サバイバルモードで遊ぶ (Survival)</button>
-                <button class="mc-button" style="background: #335588; font-weight: bold; font-size: 16px;" onclick="window.game.ui.selectGameMode('creative')">🏗️ クリエイティブモードで遊ぶ (Creative)</button>
-                <button class="mc-button" onclick="alert('【操作方法】\nW, A, S, D: 移動\nSpace: ジャンプ (クリエイティブ時は2回押しで飛行)\n左クリック: 採掘 / 攻撃\n右クリック: ブロック設置 / 特殊能力(アストラル斬撃・レーザー掘削)\nE: インベントリ / T: チャット / F3: 座標デバッグ / Esc: ポーズ')">📖 操作方法・ヘルプ (Controls)</button>
+                <button id="btn-mode-survival" class="mc-button" style="background: #337733; font-weight: bold; font-size: 16px;" onclick="window.launchMode('survival')">⚔️ サバイバルモードで遊ぶ (Survival)</button>
+                <button id="btn-mode-creative" class="mc-button" style="background: #335588; font-weight: bold; font-size: 16px;" onclick="window.launchMode('creative')">🏗️ クリエイティブモードで遊ぶ (Creative)</button>
+                <button id="btn-mode-help" class="mc-button" onclick="window.showHelpDialog()">📖 操作方法・ヘルプ (Controls)</button>
+                <div id="help-info-box" style="display: none; background: rgba(0,0,0,0.8); color: #fff; padding: 12px; border-radius: 4px; font-size: 12px; text-align: left; line-height: 18px; margin-top: 8px;">
+                    <b>【操作方法】</b><br>
+                    ・W, A, S, D または ↑ ↓ ← →: 移動<br>
+                    ・Wまたは↑矢印のダブルタップ / マウスダブルクリック / Ctrl: ダッシュ<br>
+                    ・Space: ジャンプ (クリエイティブ時は2回押しで飛行)<br>
+                    ・左クリック: 採掘 (長押し) / 攻撃<br>
+                    ・右クリック: ブロック設置 / 食べる / 特殊能力(アストラル斬撃・レーザー掘削)<br>
+                    ・E: インベントリ / T: コマンド / F3: 座標デバッグ / Esc: ポーズメニュー
+                </div>
             </div>
         </div>
 
@@ -70,6 +134,7 @@
             <h2>インベントリ (Inventory)</h2>
             <div id="inv-main-grid" class="inventory-grid-9x3"></div>
             <div id="inv-hotbar-grid" class="hotbar-grid-9x1"></div>
+            <button class="mc-button" style="background: #b85d19; font-weight: bold; margin-top: 8px;" onclick="window.game.ui.openModal('creative')">🔥 全アイテムカタログを開く (着火石・TNT・ブロック取得)</button>
             <button class="mc-button" onclick="window.game.ui.closeModal()">閉じる (Close)</button>
         </div>
 
@@ -118,8 +183,14 @@
 
         <!-- 5. Creative Catalog Modal -->
         <div id="creative-modal" class="modal-window">
-            <h2>クリエイティブ アイテムカタログ (全種類)</h2>
-            <p style="font-size: 11px; margin-bottom: 6px; color: #555;">クリックするとホットバーに64個追加されます (★マークはオリジナル要素)</p>
+            <h2>アイテムカタログ (クリックで即座にホットバーへセット！)</h2>
+            <div class="catalog-tabs">
+                <button class="catalog-tab-btn active" onclick="window.game.ui.filterCatalog('all', this)">📦 すべて</button>
+                <button class="catalog-tab-btn" onclick="window.game.ui.filterCatalog('featured', this)">🔥 着火石・TNT・人気</button>
+                <button class="catalog-tab-btn" onclick="window.game.ui.filterCatalog('blocks', this)">🧱 ブロック</button>
+                <button class="catalog-tab-btn" onclick="window.game.ui.filterCatalog('tools', this)">⚔️ 武器・ツール</button>
+                <button class="catalog-tab-btn" onclick="window.game.ui.filterCatalog('food', this)">🍖 食料・素材</button>
+            </div>
             <div id="creative-catalog-grid" class="creative-catalog-grid"></div>
             <button class="mc-button" onclick="window.game.ui.closeModal()">閉じる (Close)</button>
         </div>
@@ -128,8 +199,9 @@
         <div id="pause-modal" class="modal-window" style="width: 380px;">
             <h2 style="text-align: center; font-size: 20px;">ゲーム一時停止 (Pause)</h2>
             <button class="mc-button" onclick="window.game.ui.closeModal()">ゲームに戻る (Back to Game)</button>
-            <button id="pause-mode-btn" class="mc-button" style="background: #335588;" onclick="window.game.player.gameMode = (window.game.player.gameMode === 'creative' ? 'survival' : 'creative'); this.textContent = 'ゲームモード切替 (現在: ' + (window.game.player.gameMode === 'creative' ? 'クリエイティブ' : 'サバイバル') + ')'; window.game.ui.renderHUD();">ゲームモード切替 (Survival / Creative)</button>
-            <button class="mc-button" onclick="window.game.ui.openModal('creative')">クリエイティブカタログを開く</button>
+            <button id="pause-mode-btn" class="mc-button" style="background: #335588;" onclick="window.game.toggleGameMode()">ゲームモード切替 (Survival / Creative)</button>
+            <button class="mc-button" style="background: #145a68;" onclick="window.game.teleportToAncientCity()">🏛️ 古代都市 (Ancient City) へ移動</button>
+            <button class="mc-button" style="background: #b85d19; font-weight: bold;" onclick="window.game.ui.openModal('creative')">🔥 アイテムカタログを開く (着火石・TNT等)</button>
             <div style="display: flex; gap: 8px;">
                 <button id="pause-se-btn" class="mc-button" style="flex: 1;" onclick="const m = window.game.sound.toggleSEMute(); this.textContent = m ? '🔇 効果音: OFF' : '🔊 効果音: ON';">🔊 効果音: ON</button>
                 <button id="pause-bgm-btn" class="mc-button" style="flex: 1;" onclick="const m = window.game.sound.toggleBGMMute(); this.textContent = m ? '🔇 音楽: OFF' : '🎵 音楽: ON';">🎵 音楽: ON</button>
@@ -142,11 +214,10 @@
             </label>
             <div style="font-size: 11px; color: #444; margin-top: 10px; line-height: 16px;">
                 <b>操作方法:</b><br>
-                ・WASD: 移動 / Space: ジャンプ(クリエイティブは2回押しで飛行)<br>
-                ・Ctrl: ダッシュ / Shift: しゃがみ(飛行中下降)<br>
-                ・左クリック: 攻撃 / 採掘(長押し)<br>
-                ・右クリック: 設置 / 食べる / 特殊能力(アストラル斬撃・レーザー掘削)<br>
-                ・E: インベントリ / T: チャット・コマンド / F3: 詳細情報 / F11: 全画面
+                ・WASD / 矢印キー: 移動 / Space: ジャンプ(クリエイティブは2回押しで飛行)<br>
+                ・左クリック (または右クリック): <b>ブロック設置 / 着火石でTNT・炎着火</b> / ツールで採掘・攻撃<br>
+                ・Shift + 左クリック (または素手・ツルハシ): ブロック破壊<br>
+                ・E: インベントリ＆カタログ / T: チャット(/ancientで古代都市) / Esc: ポーズ
             </div>
         </div>
 
@@ -158,20 +229,20 @@
         </div>
     </div>
 
-    <!-- Scripts (Cache Buster v1.1.0) -->
+    <!-- Scripts (Cache Buster v1.7.0) -->
     <script src="lib/three.min.js"></script>
-    <script src="js/simplex-noise.js?v=1.1.0"></script>
-    <script src="js/constants.js?v=1.1.0"></script>
-    <script src="js/textures.js?v=1.1.0"></script>
-    <script src="js/audio.js?v=1.1.0"></script>
-    <script src="js/world.js?v=1.1.0"></script>
-    <script src="js/physics.js?v=1.1.0"></script>
-    <script src="js/player.js?v=1.1.0"></script>
-    <script src="js/items.js?v=1.1.0"></script>
-    <script src="js/mobs.js?v=1.1.0"></script>
-    <script src="js/inventory.js?v=1.1.0"></script>
-    <script src="js/ui.js?v=1.1.0"></script>
-    <script src="js/save.js?v=1.1.0"></script>
-    <script src="js/game.js?v=1.1.0"></script>
+    <script src="js/simplex-noise.js?v=1.7.0"></script>
+    <script src="js/constants.js?v=1.7.0"></script>
+    <script src="js/textures.js?v=1.7.0"></script>
+    <script src="js/audio.js?v=1.7.0"></script>
+    <script src="js/world.js?v=1.7.0"></script>
+    <script src="js/physics.js?v=1.7.0"></script>
+    <script src="js/player.js?v=1.7.0"></script>
+    <script src="js/items.js?v=1.7.0"></script>
+    <script src="js/mobs.js?v=1.7.0"></script>
+    <script src="js/inventory.js?v=1.7.0"></script>
+    <script src="js/ui.js?v=1.7.0"></script>
+    <script src="js/save.js?v=1.7.0"></script>
+    <script src="js/game.js?v=1.7.0"></script>
 </body>
 </html>
