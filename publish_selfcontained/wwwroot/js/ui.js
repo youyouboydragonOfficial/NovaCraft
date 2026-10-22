@@ -56,17 +56,26 @@
                 }
             });
 
-            // Chat Enter key
+            // Chat Input Key Handlers (Completely isolate keystrokes from game controls!)
             this.chatInput.addEventListener('keydown', (e) => {
+                e.stopPropagation();
                 if (e.key === 'Enter') {
+                    e.preventDefault();
                     const text = this.chatInput.value.trim();
                     if (text.length > 0) {
                         this.handleCommand(text);
                     }
                     this.closeChat();
                 } else if (e.key === 'Escape') {
+                    e.preventDefault();
                     this.closeChat();
                 }
+            });
+            this.chatInput.addEventListener('keyup', (e) => {
+                e.stopPropagation();
+            });
+            this.chatInput.addEventListener('keypress', (e) => {
+                e.stopPropagation();
             });
         }
 
@@ -255,7 +264,7 @@
             if (this.game.showDebug) {
                 this.debugOverlay.style.display = 'block';
                 this.debugOverlay.innerHTML = `
-                    <b>NovaCraft Infinite v2.1.0</b> (${this.player.gameMode})<br>
+                    <b>NovaCraft Infinite v2.2.0</b> (${this.player.gameMode})<br>
                     XYZ: ${this.player.x.toFixed(2)} / ${this.player.y.toFixed(2)} / ${this.player.z.toFixed(2)}<br>
                     Chunk: ${Math.floor(this.player.x / 16)}, ${Math.floor(this.player.z / 16)}<br>
                     Yaw: ${(this.player.yaw * 180 / Math.PI).toFixed(1)}° | Pitch: ${(this.player.pitch * 180 / Math.PI).toFixed(1)}°<br>
@@ -554,16 +563,32 @@
             }
         }
 
-        openChat() {
+        isChatOpen() {
+            return this.chatContainer && this.chatContainer.style.display === 'block';
+        }
+
+        openChat(initialText = '') {
             this.chatContainer.style.display = 'block';
-            this.chatInput.focus();
-            document.exitPointerLock();
+            this.chatInput.value = initialText || '';
+            // If pointer lock is active, safely release it without triggering pause menu
+            if (document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+            setTimeout(() => {
+                this.chatInput.focus();
+                if (this.chatInput.value.length > 0) {
+                    this.chatInput.setSelectionRange(this.chatInput.value.length, this.chatInput.value.length);
+                }
+            }, 10);
         }
 
         closeChat() {
             this.chatContainer.style.display = 'none';
             this.chatInput.value = '';
-            this.game.requestPointerLock();
+            this.chatInput.blur();
+            if (this.inventory.openMode === 'none' && this.gameStarted && !this.player.isDead) {
+                this.game.requestPointerLock();
+            }
         }
 
         addChatMessage(text, color = '#ffffff') {
@@ -575,12 +600,13 @@
             this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
         }
 
-        handleCommand(text) {
+        handleCommand(rawText) {
+            const text = rawText.trim();
             this.addChatMessage(`> ${text}`, '#ffff55');
-            const parts = text.split(' ');
+            const parts = text.split(/\s+/);
             const cmd = parts[0].toLowerCase();
 
-            if (cmd === '/gamemode') {
+            if (cmd === '/gamemode' || cmd === 'gamemode') {
                 const mode = parts[1]?.toLowerCase();
                 if (mode === 'creative' || mode === 'c' || mode === '1') {
                     this.player.setGameMode('creative');
@@ -588,16 +614,35 @@
                 } else if (mode === 'survival' || mode === 's' || mode === '0') {
                     this.player.setGameMode('survival');
                     this.addChatMessage('ゲームモードを「サバイバル」に変更しました。', '#55ff55');
+                } else {
+                    this.addChatMessage('使用法: /gamemode [creative | survival]', '#ffaaaa');
                 }
-            } else if (cmd === '/ancient' || cmd === '/locate') {
+            } else if (cmd === '/ancient' || cmd === 'ancient') {
                 this.game.teleportToAncientCity();
-            } else if (cmd === '/theend' || cmd === '/end') {
+            } else if (cmd === '/locate' || cmd === 'locate') {
+                const target = parts[1]?.toLowerCase();
+                if (target === 'stronghold') {
+                    this.game.teleportToStronghold();
+                } else {
+                    this.game.teleportToAncientCity();
+                }
+            } else if (cmd === '/theend' || cmd === 'theend' || cmd === '/end' || cmd === 'end') {
                 this.game.enterTheEndDimension();
-            } else if (cmd === '/stronghold') {
+            } else if (cmd === '/stronghold' || cmd === 'stronghold') {
                 this.game.teleportToStronghold();
-            } else if (cmd === '/overworld') {
+            } else if (cmd === '/overworld' || cmd === 'overworld') {
                 this.game.returnToOverworld();
-            } else if (cmd === '/time') {
+            } else if (cmd === '/fly' || cmd === 'fly') {
+                this.player.isFlying = !this.player.isFlying;
+                this.addChatMessage(`飛行モード: ${this.player.isFlying ? 'ON' : 'OFF'}`, '#55ff55');
+            } else if (cmd === '/clear' || cmd === 'clear') {
+                for (let i = 0; i < this.inventory.slots.length; i++) this.inventory.slots[i] = null;
+                this.renderHUD();
+                this.addChatMessage('インベントリをクリアしました。', '#55ff55');
+            } else if (cmd === '/kill' || cmd === 'kill') {
+                this.player.takeDamage(999, 'kill');
+                this.addChatMessage('プレイヤーを倒しました。', '#ff5555');
+            } else if (cmd === '/time' || cmd === 'time') {
                 if (parts[1] === 'set') {
                     if (parts[2] === 'day') {
                         this.game.timeOfDay = 0.25;
@@ -605,18 +650,20 @@
                     } else if (parts[2] === 'night') {
                         this.game.timeOfDay = 0.75;
                         this.addChatMessage('時間を夜に設定しました。', '#55ff55');
+                    } else {
+                        this.addChatMessage('使用法: /time set day または /time set night', '#ffaaaa');
                     }
                 }
-            } else if (cmd === '/give') {
-                const item = parts[1];
+            } else if (cmd === '/give' || cmd === 'give') {
+                const item = parts[1]?.toLowerCase();
                 const count = parseInt(parts[2] || '64');
-                if (window.ITEMS[item]) {
+                if (window.ITEMS && window.ITEMS[item]) {
                     this.inventory.addItem(item, count);
                     this.addChatMessage(`${item} を ${count} 個付与しました。`, '#55ff55');
                 } else {
-                    this.addChatMessage(`アイテム ${item} が見つかりません。`, '#ff5555');
+                    this.addChatMessage(`アイテム「${item}」が見つかりません。(/help で確認)`, '#ff5555');
                 }
-            } else if (cmd === '/tp') {
+            } else if (cmd === '/tp' || cmd === 'tp') {
                 const tx = parseFloat(parts[1]);
                 const ty = parseFloat(parts[2]);
                 const tz = parseFloat(parts[3]);
@@ -626,11 +673,24 @@
                     this.player.z = tz;
                     this.player.velocity.set(0, 0, 0);
                     this.addChatMessage(`座標 (${tx}, ${ty}, ${tz}) にテレポートしました。`, '#55ff55');
+                } else {
+                    this.addChatMessage('使用法: /tp [X] [Y] [Z]', '#ffaaaa');
                 }
-            } else if (cmd === '/help') {
-                this.addChatMessage('利用可能なコマンド: /gamemode [creative|survival], /theend (エンド世界), /stronghold (要塞), /overworld (地上), /ancient (古代都市), /time set [day|night], /give [item] [count], /tp [x] [y] [z]', '#aaffaa');
+            } else if (cmd === '/help' || cmd === 'help') {
+                this.addChatMessage('利用可能なコマンド一覧:', '#55ffff');
+                this.addChatMessage('• /gamemode [creative | survival] - モード切替', '#ffffaa');
+                this.addChatMessage('• /theend - ジ・エンド次元（エンダードラゴン）へ移動', '#ffffaa');
+                this.addChatMessage('• /stronghold - 地下要塞（エンドポータル部屋）へ移動', '#ffffaa');
+                this.addChatMessage('• /ancient - 古代都市（ウォーデン）へ移動', '#ffffaa');
+                this.addChatMessage('• /overworld - 地上スポーン地点へ帰還', '#ffffaa');
+                this.addChatMessage('• /fly - クリエイティブ飛行のON/OFF', '#ffffaa');
+                this.addChatMessage('• /time set [day | night] - 昼夜の切り替え', '#ffffaa');
+                this.addChatMessage('• /give [itemKey] [count] - アイテム取得', '#ffffaa');
+                this.addChatMessage('• /clear - インベントリを空にする', '#ffffaa');
+                this.addChatMessage('• /kill - 自滅/リスポーン', '#ffffaa');
+                this.addChatMessage('• /tp [X] [Y] [Z] - 指定座標へテレポート', '#ffffaa');
             } else {
-                this.addChatMessage(`不明なコマンドです: ${cmd} (/help で一覧表示)`, '#ff5555');
+                this.addChatMessage(`不明なコマンドです: ${cmd} (/help でコマンド一覧を表示)`, '#ff5555');
             }
         }
     }

@@ -91,10 +91,11 @@
             <button class="quick-btn flint-btn" onmousedown="event.stopPropagation(); window.game.pickCreativeItem('flint_and_steel')">🔥 着火石 [5]</button>
             <button class="quick-btn end-btn" style="background: #7c3aed; color: #ffffff;" onmousedown="event.stopPropagation(); window.game.teleportToStronghold()">🟣 要塞・エンド</button>
             <button class="quick-btn detonate-btn" onmousedown="event.stopPropagation(); window.game.detonateAllPlacedTnt()">💥 TNT一斉起爆！</button>
+            <button class="quick-btn cmd-btn" style="background: #0284c7; color: #ffffff; font-weight: bold;" onmousedown="event.stopPropagation(); window.game.ui.openChat('/')">💬 コマンド [/]</button>
             <button class="quick-btn catalog-btn" onmousedown="event.stopPropagation(); window.game.ui.openModal('creative')">📦 全アイテム [E]</button>
         </div>
         <div id="control-hint-bar" style="font-size: 11px; color: #e2e8f0; text-shadow: 1px 1px 2px #000; margin-bottom: 4px; pointer-events: none; background: rgba(0,0,0,0.55); padding: 2px 10px; border-radius: 4px;">
-            【左クリック】破壊 / 採掘 / 攻撃　|　【右クリック または Rキー】ブロック設置 / 着火 / アイテム使用　|　【F】飛行切替
+            【左クリック】破壊 / 採掘 / 攻撃　|　【右クリック または R】ブロック設置 / 着火　|　【T または /】コマンド・チャット入力
         </div>
         <div id="oxygen-container"></div>
         <div class="status-bars">
@@ -246,20 +247,20 @@
         </div>
     </div>
 
-    <!-- Scripts (Cache Buster v2.1.0) -->
+    <!-- Scripts (Cache Buster v2.2.0) -->
     <script src="lib/three.min.js"></script>
-    <script src="js/simplex-noise.js?v=2.1.0"></script>
-    <script src="js/constants.js?v=2.1.0"></script>
-    <script src="js/textures.js?v=2.1.0"></script>
-    <script src="js/audio.js?v=2.1.0"></script>
-    <script src="js/world.js?v=2.1.0"></script>
-    <script src="js/physics.js?v=2.1.0"></script>
-    <script src="js/player.js?v=2.1.0"></script>
-    <script src="js/items.js?v=2.1.0"></script>
-    <script src="js/mobs.js?v=2.1.0"></script>
-    <script src="js/inventory.js?v=2.1.0"></script>
-    <script src="js/ui.js?v=2.1.0"></script>
-    <script src="js/save.js?v=2.1.0"></script>
-    <script src="js/game.js?v=2.1.0"></script>
+    <script src="js/simplex-noise.js?v=2.2.0"></script>
+    <script src="js/constants.js?v=2.2.0"></script>
+    <script src="js/textures.js?v=2.2.0"></script>
+    <script src="js/audio.js?v=2.2.0"></script>
+    <script src="js/world.js?v=2.2.0"></script>
+    <script src="js/physics.js?v=2.2.0"></script>
+    <script src="js/player.js?v=2.2.0"></script>
+    <script src="js/items.js?v=2.2.0"></script>
+    <script src="js/mobs.js?v=2.2.0"></script>
+    <script src="js/inventory.js?v=2.2.0"></script>
+    <script src="js/ui.js?v=2.2.0"></script>
+    <script src="js/save.js?v=2.2.0"></script>
+    <script src="js/game.js?v=2.2.0"></script>
 </body>
 </html>

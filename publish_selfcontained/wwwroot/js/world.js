@@ -633,6 +633,15 @@
                         const wz = cz * CHUNK_SIZE_Z + z;
                         const isWater = (blockId === B.WATER.id);
 
+                        // Authentic 360-degree Fire model
+                        if (B.FIRE && blockId === B.FIRE.id) {
+                            const uvMap = this.atlas.getBlockUVs(blockId);
+                            const texName = (typeof uvMap === 'string') ? uvMap : (uvMap?.all || 'fire');
+                            const uv = this.atlas.getUVs(texName);
+                            this.addFireModel(positions, normals, uvs, colors, wx, y, wz, uv);
+                            continue;
+                        }
+
                         if (def.crossModel) {
                             const uvMap = this.atlas.getBlockUVs(blockId);
                             const texName = (typeof uvMap === 'string') ? uvMap : (uvMap?.all || 'flower_red');
@@ -740,26 +749,84 @@
             }
         }
 
+        // ★ Full 360-degree Double-Sided Cross Model for Flowers, Saplings, Grass (never disappears from any angle!)
         addCrossFace(pos, norm, uvs, cols, x, y, z, uv) {
-            const p1 = [x, y, z,  x+1, y+1, z+1,  x+1, y, z+1,  x, y, z,  x, y+1, z,  x+1, y+1, z+1];
-            const p2 = [x+1, y, z,  x, y+1, z+1,  x, y, z+1,  x, y, z,  x+1, y+1, z,  x, y+1, z+1];
+            const addDoubleSidedQuad = (p0, p1, p2, p3) => {
+                // p0: bottom-left, p1: top-left, p2: top-right, p3: bottom-right
+                const quads = [
+                    // Front (CCW)
+                    p0[0], p0[1], p0[2],  p3[0], p3[1], p3[2],  p2[0], p2[1], p2[2],
+                    p0[0], p0[1], p0[2],  p2[0], p2[1], p2[2],  p1[0], p1[1], p1[2],
+                    // Back (Reversed winding so FrontSide material renders both sides)
+                    p0[0], p0[1], p0[2],  p2[0], p2[1], p2[2],  p3[0], p3[1], p3[2],
+                    p0[0], p0[1], p0[2],  p1[0], p1[1], p1[2],  p2[0], p2[1], p2[2]
+                ];
+                const uvPattern = [
+                    // Front
+                    uv.uMin, uv.vMin,  uv.uMax, uv.vMin,  uv.uMax, uv.vMax,
+                    uv.uMin, uv.vMin,  uv.uMax, uv.vMax,  uv.uMin, uv.vMax,
+                    // Back
+                    uv.uMin, uv.vMin,  uv.uMax, uv.vMax,  uv.uMax, uv.vMin,
+                    uv.uMin, uv.vMin,  uv.uMin, uv.vMax,  uv.uMax, uv.vMax
+                ];
+                for (let i = 0; i < quads.length; i += 3) {
+                    pos.push(quads[i], quads[i+1], quads[i+2]);
+                    norm.push(0, 1, 0);
+                    cols.push(1.0, 1.0, 1.0);
+                }
+                uvs.push(...uvPattern);
+            };
 
-            const uvQuad = [
-                uv.uMin, uv.vMin,  uv.uMax, uv.vMax,  uv.uMax, uv.vMin,
-                uv.uMin, uv.vMin,  uv.uMin, uv.vMax,  uv.uMax, uv.vMax
-            ];
+            // Diagonal 1: (x, z) to (x+1, z+1)
+            addDoubleSidedQuad([x, y, z], [x, y + 1, z], [x + 1, y + 1, z + 1], [x + 1, y, z + 1]);
+            // Diagonal 2: (x+1, z) to (x, z+1)
+            addDoubleSidedQuad([x + 1, y, z], [x + 1, y + 1, z], [x, y + 1, z + 1], [x, y, z + 1]);
+        }
 
-            for (let i = 0; i < p1.length; i += 3) {
-                pos.push(p1[i], p1[i+1], p1[i+2]);
-                norm.push(0, 1, 0);
-                cols.push(1, 1, 1);
-            }
-            for (let i = 0; i < p2.length; i += 3) {
-                pos.push(p2[i], p2[i+1], p2[i+2]);
-                norm.push(0, 1, 0);
-                cols.push(1, 1, 1);
-            }
-            uvs.push(...uvQuad, ...uvQuad);
+        // ★ Authentic Minecraft 360-Degree Volumetric Fire Model
+        // 8 Multi-Angled Double-Sided Planes (Diagonals, Center Cross & Inset Perimeter Sheets)
+        // Guaranteed 100% visible from every single 360-degree viewpoint!
+        addFireModel(pos, norm, uvs, cols, x, y, z, uv) {
+            const h = 1.18; // Vibrant licking flame height
+            const addDoubleSidedQuad = (p0, p1, p2, p3) => {
+                const quads = [
+                    // Front (CCW)
+                    p0[0], p0[1], p0[2],  p3[0], p3[1], p3[2],  p2[0], p2[1], p2[2],
+                    p0[0], p0[1], p0[2],  p2[0], p2[1], p2[2],  p1[0], p1[1], p1[2],
+                    // Back (Reversed winding so FrontSide material renders both sides)
+                    p0[0], p0[1], p0[2],  p2[0], p2[1], p2[2],  p3[0], p3[1], p3[2],
+                    p0[0], p0[1], p0[2],  p1[0], p1[1], p1[2],  p2[0], p2[1], p2[2]
+                ];
+                const uvPattern = [
+                    // Front
+                    uv.uMin, uv.vMin,  uv.uMax, uv.vMin,  uv.uMax, uv.vMax,
+                    uv.uMin, uv.vMin,  uv.uMax, uv.vMax,  uv.uMin, uv.vMax,
+                    // Back
+                    uv.uMin, uv.vMin,  uv.uMax, uv.vMax,  uv.uMax, uv.vMin,
+                    uv.uMin, uv.vMin,  uv.uMin, uv.vMax,  uv.uMax, uv.vMax
+                ];
+                for (let i = 0; i < quads.length; i += 3) {
+                    pos.push(quads[i], quads[i+1], quads[i+2]);
+                    norm.push(0, 1, 0);
+                    cols.push(1.0, 1.0, 1.0); // Full self-illumination (always glowing bright fire)
+                }
+                uvs.push(...uvPattern);
+            };
+
+            // 1. Two Crossing Diagonals (X-shape)
+            addDoubleSidedQuad([x, y, z], [x, y + h, z], [x + 1, y + h, z + 1], [x + 1, y, z + 1]);
+            addDoubleSidedQuad([x + 1, y, z], [x + 1, y + h, z], [x, y + h, z + 1], [x, y, z + 1]);
+
+            // 2. Center Cross: East-West (+-shape)
+            addDoubleSidedQuad([x, y, z + 0.5], [x, y + h, z + 0.5], [x + 1, y + h, z + 0.5], [x + 1, y, z + 0.5]);
+            // 3. Center Cross: North-South (+-shape)
+            addDoubleSidedQuad([x + 0.5, y, z], [x + 0.5, y + h, z], [x + 0.5, y + h, z + 1], [x + 0.5, y, z + 1]);
+
+            // 4. Perimeter Flame Sheets (North, South, East, West inset slightly so they overlap block edges)
+            addDoubleSidedQuad([x, y, z + 0.12], [x, y + h, z + 0.12], [x + 1, y + h, z + 0.12], [x + 1, y, z + 0.12]);
+            addDoubleSidedQuad([x, y, z + 0.88], [x, y + h, z + 0.88], [x + 1, y + h, z + 0.88], [x + 1, y, z + 0.88]);
+            addDoubleSidedQuad([x + 0.12, y, z], [x + 0.12, y + h, z], [x + 0.12, y + h, z + 1], [x + 0.12, y, z + 1]);
+            addDoubleSidedQuad([x + 0.88, y, z], [x + 0.88, y + h, z], [x + 0.88, y + h, z + 1], [x + 0.88, y, z + 1]);
         }
 
         // Guaranteed streaming: Player chunk and immediate surroundings ALWAYS generated synchronously!

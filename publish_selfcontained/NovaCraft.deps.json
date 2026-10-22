@@ -7,7 +7,7 @@
   "targets": {
     ".NETCoreApp,Version=v10.0": {},
     ".NETCoreApp,Version=v10.0/win-x64": {
-      "NovaCraft/2.1.0": {
+      "NovaCraft/2.2.0": {
         "dependencies": {
           "Microsoft.Web.WebView2": "1.0.4258.31",
           "Microsoft.Web.WebView2.Core": "1.0.4258.31",
@@ -905,7 +905,7 @@
     }
   },
   "libraries": {
-    "NovaCraft/2.1.0": {
+    "NovaCraft/2.2.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

@@ -358,7 +358,9 @@
                     this.input.keys = {};
                     this.input.mouseButtons = {};
                     this.input.spaceJustPressed = false;
-                    if (this.gameStarted && this.pointerLockAcquired && this.inventory.openMode === 'none' && !this.player.isDead) {
+                    // NEVER open pause modal if chat is open or an inventory modal is active!
+                    const isChatActive = this.ui && this.ui.isChatOpen && this.ui.isChatOpen();
+                    if (this.gameStarted && this.pointerLockAcquired && this.inventory.openMode === 'none' && !isChatActive && !this.player.isDead) {
                         this.pointerLockAcquired = false;
                         this.ui.openModal('pause');
                     }
@@ -385,6 +387,16 @@
             });
 
             window.addEventListener('keydown', (e) => {
+                // If chat is open or user is typing into any input element, ignore all game controls!
+                const isTyping = (this.ui && this.ui.isChatOpen && this.ui.isChatOpen()) ||
+                                 (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'));
+                if (isTyping) {
+                    if (e.key === 'Escape') {
+                        if (this.ui && this.ui.closeChat) this.ui.closeChat();
+                    }
+                    return;
+                }
+
                 this.sound.init();
                 if (e.code === 'Space') {
                     this.input.spaceJustPressed = true;
@@ -418,11 +430,13 @@
                     }
                 }
 
-                // Chat 'T' or '/'
-                if ((e.code === 'KeyT' || e.key === '/') && this.inventory.openMode === 'none') {
+                // Chat 'T', '/', or 'Enter'
+                const isChatTrigger = (e.code === 'KeyT' || e.code === 'Slash' || e.key === '/' || e.code === 'Enter' || e.key === 'Enter');
+                if (isChatTrigger && this.inventory.openMode === 'none') {
                     e.preventDefault();
-                    this.ui.openChat();
-                    if (e.key === '/') this.ui.chatInput.value = '/';
+                    const initialChar = (e.key === '/' || e.code === 'Slash') ? '/' : '';
+                    this.ui.openChat(initialChar);
+                    return;
                 }
 
                 // F3 Debug toggle
@@ -449,6 +463,9 @@
             });
 
             window.addEventListener('keyup', (e) => {
+                const isTyping = (this.ui && this.ui.isChatOpen && this.ui.isChatOpen()) ||
+                                 (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'));
+                if (isTyping) return;
                 this.input.keys[e.code] = false;
                 // Stop sprinting when releasing forward movement key
                 if (e.code === 'KeyW' || e.code === 'ArrowUp') {
@@ -470,7 +487,7 @@
 
             // Mouse Click (Left Click: Instant Break in Creative / Mining & Attack in Survival | Right Click: Place Block / Use Item)
             window.addEventListener('mousedown', (e) => {
-                if (this.inventory.openMode !== 'none' || !this.gameStarted) return;
+                if (this.inventory.openMode !== 'none' || (this.ui && this.ui.isChatOpen && this.ui.isChatOpen()) || !this.gameStarted) return;
                 if (!this.isPointerLocked && e.target !== this.renderer.domElement) return;
 
                 this.sound.init();
@@ -671,7 +688,8 @@
                         const fz = ray.z + ray.normal[2];
                         if (this.world.getBlock(fx, fy, fz) === B.AIR.id) {
                             this.world.setBlock(fx, fy, fz, B.FIRE.id);
-                            this.itemManager.spawnBlockParticles(fx + 0.5, fy + 0.3, fz + 0.5, 0xff7711, 10);
+                            if (this.sound && this.sound.playFlintAndSteel) this.sound.playFlintAndSteel();
+                            this.itemManager.spawnBlockParticles(fx + 0.5, fy + 0.3, fz + 0.5, 0xff7711, 14);
                             if (itemKey === 'fire_charge' && this.player.gameMode !== 'creative') {
                                 this.inventory.consumeSelectedItem(1);
                             }
@@ -699,7 +717,8 @@
                         }
                         if (belowId !== B.AIR.id && curId === B.AIR.id) {
                             this.world.setBlock(fx, baseY + dy, fz, B.FIRE.id);
-                            this.itemManager.spawnBlockParticles(fx + 0.5, baseY + dy + 0.3, fz + 0.5, 0xff7711, 10);
+                            if (this.sound && this.sound.playFlintAndSteel) this.sound.playFlintAndSteel();
+                            this.itemManager.spawnBlockParticles(fx + 0.5, baseY + dy + 0.3, fz + 0.5, 0xff7711, 14);
                             return;
                         }
                     }
