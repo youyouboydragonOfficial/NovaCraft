@@ -1388,17 +1388,17 @@
         }
 
         teleportToAncientCity() {
-            this.world.updateChunksAround(32, 32, 3);
-            this.player.x = 32.5;
+            this.world.updateChunksAround(112, 112, 3);
+            this.player.x = 112.5;
             this.player.y = 7.2;
-            this.player.z = 22.5; // Facing the giant central Reinforced Deepslate Portal at Z=32
-            this.player.yaw = Math.PI;
+            this.player.z = 104.5; // Facing the giant central Reinforced Deepslate Portal at Z=112
+            this.player.yaw = 0;
             this.player.pitch = 0.05;
             this.player.velocity.set(0, 0, 0);
             this.player.fallDistance = 0;
             this.input.keys = {};
             if (this.mobManager && this.mobManager.spawnWardenIfNeeded) {
-                this.mobManager.spawnWardenIfNeeded(32.5, 7.0, 32.5);
+                this.mobManager.spawnWardenIfNeeded(112.5, 7.0, 112.5);
             }
             this.sound.playWarp();
             this.ui.closeModal();

@@ -255,7 +255,7 @@
             if (this.game.showDebug) {
                 this.debugOverlay.style.display = 'block';
                 this.debugOverlay.innerHTML = `
-                    <b>NovaCraft Infinite v1.6.0</b> (${this.player.gameMode})<br>
+                    <b>NovaCraft Infinite v2.1.0</b> (${this.player.gameMode})<br>
                     XYZ: ${this.player.x.toFixed(2)} / ${this.player.y.toFixed(2)} / ${this.player.z.toFixed(2)}<br>
                     Chunk: ${Math.floor(this.player.x / 16)}, ${Math.floor(this.player.z / 16)}<br>
                     Yaw: ${(this.player.yaw * 180 / Math.PI).toFixed(1)}° | Pitch: ${(this.player.pitch * 180 / Math.PI).toFixed(1)}°<br>

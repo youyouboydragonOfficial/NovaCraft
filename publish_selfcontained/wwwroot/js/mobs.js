@@ -1307,21 +1307,19 @@
         }
 
         update(dt, player, timeOfDay) {
-            // 1. Initial Animal & Ancient City Warden Guarantee
+            // 1. Initial Animal Guarantee
             if (!this.initialSpawnDone) {
                 this.initialSpawnDone = true;
                 this.spawnAnimalCluster(player.x, player.z, 10);
-                // Spawn Warden guarding the Ancient City Altar
-                this.spawnWardenIfNeeded(32.5, 7.0, 29.5);
             }
 
-            // 2. If player is inside the Ancient City (Y < 16), ensure Warden & underground mobs are present
+            // 2. If player is inside the Ancient City (cx 6..7, cz 6..7 -> X: 96..127, Z: 96..127, Y < 16), ensure Warden is present
             this.spawnTimer += dt;
             if (this.spawnTimer > 1.5) {
                 this.spawnTimer = 0;
 
-                if (player.y < 16.0) {
-                    this.spawnWardenIfNeeded(32.5, 7.0, 29.5);
+                if (player.y < 16.0 && player.x >= 90 && player.x <= 134 && player.z >= 90 && player.z <= 134) {
+                    this.spawnWardenIfNeeded(112.5, 7.0, 112.5);
                 }
 
                 if (this.mobs.length < 15) {

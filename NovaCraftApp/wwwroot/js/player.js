@@ -313,6 +313,35 @@
             }
 
             if (this.gameMode === 'survival') {
+                // Cactus prick damage: touching or standing against cactus deals 1 damage every 0.5s!
+                let touchingCactus = false;
+                if (B.CACTUS) {
+                    const px0 = Math.floor(this.x - 0.38), px1 = Math.floor(this.x + 0.38);
+                    const py0 = Math.floor(this.y), py1 = Math.floor(this.y + 1.8);
+                    const pz0 = Math.floor(this.z - 0.38), pz1 = Math.floor(this.z + 0.38);
+                    for (let bx = px0; bx <= px1; bx++) {
+                        for (let by = py0; by <= py1; by++) {
+                            for (let bz = pz0; bz <= pz1; bz++) {
+                                if (this.world.getBlock(bx, by, bz) === B.CACTUS.id) {
+                                    touchingCactus = true;
+                                    break;
+                                }
+                            }
+                            if (touchingCactus) break;
+                        }
+                        if (touchingCactus) break;
+                    }
+                }
+                if (touchingCactus) {
+                    this.cactusDamageTimer = (this.cactusDamageTimer || 0) + dt;
+                    if (this.cactusDamageTimer >= 0.5) {
+                        this.takeDamage(1, 'cactus');
+                        if (this.sound && this.sound.playPlayerHurt) this.sound.playPlayerHurt();
+                        this.cactusDamageTimer = 0;
+                    }
+                } else {
+                    this.cactusDamageTimer = 0;
+                }
 
                 // Oxygen in water: ONLY consume when head is actually submerged under water!
                 if (this.headInWater) {
