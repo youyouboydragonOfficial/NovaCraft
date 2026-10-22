@@ -8,6 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>NovaCraft-Setup</AssemblyName>
     <ApplicationTitle>NovaCraft Setup</ApplicationTitle>
+    <StartupObject>NovaCraftInstaller.InstallerForm</StartupObject>
   </PropertyGroup>
 
 </Project>
