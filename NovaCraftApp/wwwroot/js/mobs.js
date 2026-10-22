@@ -701,6 +701,116 @@
                 rightWing.position.set(0.7, 1.5, 0);
                 this.group.add(leftWing, rightWing);
                 this.wings.push(leftWing, rightWing);
+            } else if (t === 'end_crystal') {
+                // ★ Authentic End Crystal (Obsidian Base + Nested Rotating Magenta/Ruby Cubes)
+                this.isHostile = false;
+                this.health = 1;
+                this.maxHealth = 1;
+                this.speed = 0;
+
+                const obsidianMat = new THREE.MeshLambertMaterial({ color: 0x16121e });
+                const crystalGlassMat = new THREE.MeshLambertMaterial({ color: 0xd826b5, transparent: true, opacity: 0.85 });
+                const crystalCoreMat = new THREE.MeshBasicMaterial({ color: 0xff3355 });
+
+                // Obsidian base
+                const base = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.25, 1.2), obsidianMat);
+                base.position.y = 0.125;
+                this.group.add(base);
+
+                // Outer rotating glass cube
+                this.crystalOuter = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.85, 0.85), crystalGlassMat);
+                this.crystalOuter.position.y = 1.0;
+                this.group.add(this.crystalOuter);
+
+                // Inner rotating ruby cube
+                this.crystalInner = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.48, 0.48), crystalCoreMat);
+                this.crystalInner.position.y = 1.0;
+                this.group.add(this.crystalInner);
+
+            } else if (t === 'ender_dragon') {
+                // ★ Authentic Minecraft ENDER DRAGON Boss! (Articulated wings, body, neck, head, tail)
+                this.isHostile = true;
+                this.health = 200;
+                this.maxHealth = 200;
+                this.speed = 15.0;
+                this.damage = 10;
+                this.isBoss = true;
+                this.flightAngle = 0;
+                this.diveTimer = 14.0;
+                this.isDiving = false;
+
+                const dragonDark = new THREE.MeshLambertMaterial({ color: 0x181820 });
+                const dragonWingMembrane = new THREE.MeshLambertMaterial({ color: 0x22222a });
+                const dragonEyeMat = new THREE.MeshBasicMaterial({ color: 0xcc28ff });
+                const dragonSpikeMat = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+
+                // 1. Main Body
+                this.body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 4.4), dragonDark);
+                this.body.position.y = 1.6;
+                this.group.add(this.body);
+
+                // Spine spikes on body
+                for (let sz = -1.6; sz <= 1.6; sz += 0.8) {
+                    const spike = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.35, 0.3), dragonSpikeMat);
+                    spike.position.set(0, 2.45, sz);
+                    this.group.add(spike);
+                }
+
+                // 2. Neck & Head
+                this.headGroup = new THREE.Group();
+                this.headGroup.position.set(0, 1.7, 2.6);
+
+                const neck = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 1.6), dragonDark);
+                neck.position.set(0, 0, 0.8);
+                this.headGroup.add(neck);
+
+                const head = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 1.4), dragonDark);
+                head.position.set(0, 0.2, 1.9);
+                this.headGroup.add(head);
+
+                // Snout
+                const snout = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 1.0), dragonDark);
+                snout.position.set(0, -0.05, 2.8);
+                this.headGroup.add(snout);
+
+                // Glowing Purple Eyes
+                [-0.45, 0.45].forEach(ex => {
+                    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), dragonEyeMat);
+                    eye.position.set(ex, 0.45, 2.3);
+                    this.headGroup.add(eye);
+                });
+                this.group.add(this.headGroup);
+
+                // 3. Articulated Left & Right Wings
+                this.dragonWings = [];
+                [-1, 1].forEach(side => {
+                    const wingPivot = new THREE.Group();
+                    wingPivot.position.set(side * 0.9, 2.2, 0.2);
+
+                    const innerWing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.15, 1.6), dragonWingMembrane);
+                    innerWing.position.set(side * 1.2, 0, 0);
+                    wingPivot.add(innerWing);
+
+                    const outerPivot = new THREE.Group();
+                    outerPivot.position.set(side * 2.4, 0, 0);
+                    const outerWing = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 1.3), dragonWingMembrane);
+                    outerWing.position.set(side * 1.3, 0, 0);
+                    outerPivot.add(outerWing);
+                    wingPivot.add(outerPivot);
+
+                    this.group.add(wingPivot);
+                    this.dragonWings.push({ pivot: wingPivot, outer: outerPivot, side });
+                });
+
+                // 4. Segmented Tail
+                this.tailGroup = new THREE.Group();
+                this.tailGroup.position.set(0, 1.4, -2.2);
+                for (let ti = 0; ti < 3; ti++) {
+                    const tMesh = new THREE.Mesh(new THREE.BoxGeometry(0.7 - ti * 0.15, 0.6 - ti * 0.1, 1.2), dragonDark);
+                    tMesh.position.set(0, 0, -ti * 1.2);
+                    this.tailGroup.add(tMesh);
+                }
+                this.group.add(this.tailGroup);
             }
         }
 
@@ -780,6 +890,53 @@
                 im.spawnDroppedItem(this.x, this.y + 0.5, this.z, 'diamond', 3);
             } else if (this.type === 'astral_phantom') {
                 im.spawnDroppedItem(this.x, this.y + 0.5, this.z, 'astral_crystal', 3);
+            } else if (this.type === 'end_crystal') {
+                // End Crystal explodes violently upon destruction!
+                if (this.sound && this.sound.playExplosion) this.sound.playExplosion();
+                im.spawnBlockParticles(this.x, this.y + 1, this.z, 0xff2222, 24);
+                im.spawnBlockParticles(this.x, this.y + 1, this.z, 0xffaa00, 16);
+                im.spawnBlockParticles(this.x, this.y + 1, this.z, 0xdddddd, 16);
+                // Damage dragon if within 32m
+                if (this.mobManager) {
+                    const dragon = this.mobManager.mobs.find(m => m.type === 'ender_dragon' && !m.isDead);
+                    if (dragon) {
+                        const dist = Math.hypot(dragon.x - this.x, dragon.y - this.y, dragon.z - this.z);
+                        if (dist < 32) {
+                            dragon.takeDamage(25);
+                        }
+                    }
+                }
+            } else if (this.type === 'ender_dragon') {
+                // ★ Legendary Ender Dragon Defeat Sequence!
+                if (this.sound && this.sound.playDragonRoar) this.sound.playDragonRoar();
+                im.spawnDroppedItem(this.x, this.y + 1, this.z, 'dragon_breath', 4);
+                im.spawnDroppedItem(this.x, this.y + 1, this.z, 'elytra', 1);
+
+                // Fountain of radiant XP particles
+                for (let i = 0; i < 40; i++) {
+                    const rx = (Math.random() - 0.5) * 6;
+                    const rz = (Math.random() - 0.5) * 6;
+                    im.spawnBlockParticles(this.x + rx, this.y + 2 + Math.random() * 4, this.z + rz, 0x55ff55, 3);
+                    im.spawnBlockParticles(this.x + rx, this.y + 2 + Math.random() * 4, this.z + rz, 0xaa22ff, 3);
+                }
+
+                // Activate Center Exit Portal in The End! (Fill 3x3 with END_PORTAL)
+                const B = window.BLOCKS;
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dz = -1; dz <= 1; dz++) {
+                        this.world.setBlock(dx, 62, dz, B.END_PORTAL.id);
+                    }
+                }
+                // Place Dragon Egg on the bedrock pillar!
+                this.world.setBlock(0, 67, 0, B.DRAGON_EGG.id);
+
+                if (this.sound && this.sound.playEndPortalOpen) this.sound.playEndPortalOpen();
+                const bossBar = document.getElementById('boss-bar-container');
+                if (bossBar) bossBar.style.display = 'none';
+
+                if (window.game?.ui) {
+                    window.game.ui.addChatMessage('🏆 エンダードラゴンを討伐しました！中央のエンドポータルが起動し、ドラゴンの卵が出現しました！', '#d855ff');
+                }
             }
 
             this.scene.remove(this.group);
@@ -966,7 +1123,117 @@
             // 7. Vertical Gravity & Floor Alignment (Supports both Underground Ancient City & Surface!)
             const floorY = this.world.getGroundYBelow(Math.floor(this.x), this.y + 1.5, Math.floor(this.z)) + 1.0;
 
-            if (this.type === 'astral_phantom') {
+            if (this.type === 'end_crystal') {
+                // Floating rotating End Crystal
+                if (this.crystalOuter && this.crystalInner) {
+                    this.crystalOuter.rotation.y += dt * 1.5;
+                    this.crystalOuter.rotation.x += dt * 0.8;
+                    this.crystalInner.rotation.y -= dt * 2.2;
+                    this.crystalInner.rotation.z += dt * 1.1;
+                    const bob = Math.sin(performance.now() * 0.003) * 0.12;
+                    this.crystalOuter.position.y = 1.0 + bob;
+                    this.crystalInner.position.y = 1.0 + bob;
+                }
+            } else if (this.type === 'ender_dragon') {
+                // ★ Full authentic Ender Dragon Boss AI!
+                const bossBar = document.getElementById('boss-bar-container');
+                const bossFill = document.getElementById('boss-bar-fill');
+                if (bossBar) bossBar.style.display = 'flex';
+                if (bossFill) bossFill.style.width = `${Math.max(0, Math.min(100, (this.health / this.maxHealth) * 100))}%`;
+
+                // Wing flapping animation
+                this.wingAnim = (this.wingAnim || 0) + dt * 10.0;
+                const flap = Math.sin(this.wingAnim) * 0.52;
+                if (this.dragonWings) {
+                    this.dragonWings.forEach(w => {
+                        w.pivot.rotation.z = flap * w.side;
+                        w.outer.rotation.z = flap * 0.65 * w.side;
+                    });
+                }
+
+                // Check End Crystals for Healing Beam
+                if (this.mobManager) {
+                    const crystals = this.mobManager.mobs.filter(m => m.type === 'end_crystal' && !m.isDead);
+                    if (crystals.length > 0) {
+                        const nearest = crystals[0];
+                        const cDist = Math.hypot(nearest.x - this.x, nearest.y - this.y, nearest.z - this.z);
+                        if (cDist < 48) {
+                            // Restore 1 HP every second
+                            this.healTimer = (this.healTimer || 0) + dt;
+                            if (this.healTimer >= 1.0) {
+                                this.health = Math.min(this.maxHealth, this.health + 1);
+                                this.healTimer = 0;
+                            }
+                            // Spawn beam particles from crystal to dragon
+                            if (Math.random() < 0.6) {
+                                const frac = Math.random();
+                                const bx = nearest.x + (this.x - nearest.x) * frac;
+                                const by = (nearest.y + 1) + (this.y + 1.5 - (nearest.y + 1)) * frac;
+                                const bz = nearest.z + (this.z - nearest.z) * frac;
+                                this.itemManager.spawnBlockParticles(bx, by, bz, 0xbf30ff, 1);
+                            }
+                        }
+                    }
+                }
+
+                // Flight and dive attack AI
+                this.diveTimer -= dt;
+                if (this.diveTimer <= 0 && !this.isDiving) {
+                    this.isDiving = true;
+                    this.diveTarget = { x: player.x, y: player.y + 0.5, z: player.z };
+                    this.diveDuration = 4.0;
+                    if (this.sound && this.sound.playDragonRoar) this.sound.playDragonRoar();
+                }
+
+                let targetX = 0, targetY = 78, targetZ = 0;
+                if (this.isDiving && this.diveTarget) {
+                    targetX = this.diveTarget.x;
+                    targetY = this.diveTarget.y;
+                    targetZ = this.diveTarget.z;
+                    this.diveDuration -= dt;
+                    if (this.diveDuration <= 0 || this.y <= player.y + 1.2) {
+                        this.isDiving = false;
+                        this.diveTimer = 14.0 + Math.random() * 8.0;
+                    }
+                    // Dive damage to player
+                    const pDist = Math.hypot(player.x - this.x, player.y - this.y, player.z - this.z);
+                    if (pDist < 4.2) {
+                        player.takeDamage(this.damage, 'ender_dragon');
+                        player.velocity.y = 8.0;
+                        this.isDiving = false;
+                        this.diveTimer = 16.0;
+                    }
+                } else {
+                    this.flightAngle += dt * 0.42;
+                    targetX = Math.cos(this.flightAngle) * 28;
+                    targetZ = Math.sin(this.flightAngle) * 28;
+                    targetY = 76 + Math.sin(this.flightAngle * 2.2) * 5.5;
+
+                    // Periodic dragon breath attack
+                    this.breathTimer = (this.breathTimer || 0) + dt;
+                    if (this.breathTimer >= 8.0) {
+                        this.breathTimer = 0;
+                        const pDir = new THREE.Vector3(player.x - this.x, (player.y + 1) - (this.y + 1), player.z - this.z).normalize();
+                        if (this.itemManager.shootFireball) {
+                            this.itemManager.shootFireball(new THREE.Vector3(this.x, this.y + 1.5, this.z), pDir);
+                        }
+                    }
+                }
+
+                const moveDirX = targetX - this.x;
+                const moveDirY = targetY - this.y;
+                const moveDirZ = targetZ - this.z;
+                const distToTarget = Math.hypot(moveDirX, moveDirY, moveDirZ);
+                const curSpeed = this.isDiving ? 22.0 : 13.0;
+                if (distToTarget > 0.5) {
+                    this.x += (moveDirX / distToTarget) * curSpeed * dt;
+                    this.y += (moveDirY / distToTarget) * curSpeed * dt;
+                    this.z += (moveDirZ / distToTarget) * curSpeed * dt;
+                    this.yaw = Math.atan2(moveDirX, moveDirZ);
+                    this.group.rotation.y = this.yaw;
+                }
+
+            } else if (this.type === 'astral_phantom') {
                 this.y = Math.max(floorY + 3.5, floorY + 2.5 + Math.sin(performance.now() * 0.003) * 1.2);
             } else {
                 this.vy = Math.max(-24.0, this.vy - 22.0 * dt);
@@ -997,6 +1264,7 @@
 
         spawnMob(type, x, y, z) {
             const mob = new Mob(type, x, y, z, this.scene, this.world, this.sound, this.itemManager);
+            mob.mobManager = this;
             this.mobs.push(mob);
             return mob;
         }

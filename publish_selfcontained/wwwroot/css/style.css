@@ -562,3 +562,65 @@ body, html {
     gap: 8px;
 }
 
+/* Boss Health Bar (Authentic Minecraft Purple Segmented Boss Bar) */
+#boss-bar-container {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 360px;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    z-index: 50;
+}
+#boss-bar-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #e8a6ff;
+    text-shadow: 1px 1px 2px #000;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+}
+#boss-bar-track {
+    width: 100%;
+    height: 12px;
+    background: #2b1136;
+    border: 2px solid #55186b;
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(180, 40, 255, 0.45);
+    overflow: hidden;
+}
+#boss-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #a81ae8, #df48ff, #f08aff);
+    transition: width 0.15s ease-out;
+}
+
+/* Fire Screen Overlay (Dancing flame border on bottom of screen when on fire) */
+#fire-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 38%;
+    pointer-events: none;
+    z-index: 35;
+    background: radial-gradient(ellipse at 50% 100%, rgba(255, 120, 0, 0.75) 0%, rgba(255, 40, 0, 0.5) 45%, rgba(180, 0, 0, 0) 80%);
+    animation: fireFlicker 0.18s infinite alternate ease-in-out;
+}
+
+@keyframes fireFlicker {
+    0% {
+        opacity: 0.85;
+        transform: scaleY(1.0) translateY(0);
+        filter: brightness(1.0);
+    }
+    100% {
+        opacity: 1.0;
+        transform: scaleY(1.06) translateY(-4px);
+        filter: brightness(1.25);
+    }
+}
+
+

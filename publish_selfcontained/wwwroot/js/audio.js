@@ -368,6 +368,73 @@
             osc.stop(now + 0.11);
         }
 
+        playFireExtinguish() {
+            if (this.seMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const bufferSize = Math.floor(this.ctx.sampleRate * 0.45);
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+            }
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(800, now);
+            filter.Q.setValueAtTime(3.0, now);
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.25 * this.seVolume, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            noise.start(now);
+        }
+
+        playEndPortalOpen() {
+            if (this.seMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            // Deep resonant void drone + celestial harmonic chime
+            [55, 110, 165, 330].forEach((freq, idx) => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = (idx === 0) ? 'sawtooth' : 'sine';
+                osc.frequency.setValueAtTime(freq, now);
+                osc.frequency.exponentialRampToValueAtTime(freq * 0.85, now + 2.5);
+                gain.gain.setValueAtTime((0.15 / (idx + 1)) * this.seVolume, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.8);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now + idx * 0.05);
+                osc.stop(now + 2.9);
+            });
+        }
+
+        playDragonRoar() {
+            if (this.seMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const filter = this.ctx.createBiquadFilter();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sawtooth';
+            filter.type = 'lowpass';
+            osc.frequency.setValueAtTime(140, now);
+            osc.frequency.exponentialRampToValueAtTime(45, now + 1.2);
+            filter.frequency.setValueAtTime(450, now);
+            filter.frequency.exponentialRampToValueAtTime(120, now + 1.2);
+
+            gain.gain.setValueAtTime(0.35 * this.seVolume, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.3);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 1.35);
+        }
+
         playPlayerHurt() {
             if (this.seMuted || !this.ctx) return;
             const now = this.ctx.currentTime;
@@ -518,6 +585,73 @@
             osc.stop(now + 0.11);
         }
 
+        playFireExtinguish() {
+            if (this.seMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const bufferSize = Math.floor(this.ctx.sampleRate * 0.45);
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+            }
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(800, now);
+            filter.Q.setValueAtTime(3.0, now);
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.25 * this.seVolume, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            noise.start(now);
+        }
+
+        playEndPortalOpen() {
+            if (this.seMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            // Deep resonant void drone + celestial harmonic chime
+            [55, 110, 165, 330].forEach((freq, idx) => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = (idx === 0) ? 'sawtooth' : 'sine';
+                osc.frequency.setValueAtTime(freq, now);
+                osc.frequency.exponentialRampToValueAtTime(freq * 0.85, now + 2.5);
+                gain.gain.setValueAtTime((0.15 / (idx + 1)) * this.seVolume, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.8);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now + idx * 0.05);
+                osc.stop(now + 2.9);
+            });
+        }
+
+        playDragonRoar() {
+            if (this.seMuted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const filter = this.ctx.createBiquadFilter();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sawtooth';
+            filter.type = 'lowpass';
+            osc.frequency.setValueAtTime(140, now);
+            osc.frequency.exponentialRampToValueAtTime(45, now + 1.2);
+            filter.frequency.setValueAtTime(450, now);
+            filter.frequency.exponentialRampToValueAtTime(120, now + 1.2);
+
+            gain.gain.setValueAtTime(0.35 * this.seVolume, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.3);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 1.35);
+        }
+
         // Gentle, non-harsh mob sounds
         playMobSound(type) {
             if (this.seMuted || !this.ctx) return;
@@ -546,6 +680,9 @@
                 fStart = 340; fEnd = 210; dur = 0.12;
             } else if (type === 'warden') {
                 fStart = 68; fEnd = 45; dur = 0.55;
+            } else if (type === 'ender_dragon') {
+                this.playDragonRoar();
+                return;
             } else {
                 fStart = 160; fEnd = 110; dur = 0.15;
             }

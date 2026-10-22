@@ -431,6 +431,11 @@
                     this.showDebug = !this.showDebug;
                 }
 
+                // KeyR: Instant Block Placement Shortcut!
+                if (e.code === 'KeyR' && this.inventory.openMode === 'none' && this.gameStarted && !this.player.isDead) {
+                    this.handleRightClick();
+                }
+
                 // Escape key toggle pause menu
                 if (e.code === 'Escape') {
                     if (this.inventory.openMode !== 'none') {
@@ -735,6 +740,32 @@
                 return;
             }
 
+            // ★ 3b. Eye of Ender (エンダーアイ: 要塞探索投擲 & エンドポータル枠への挿入)
+            if (itemKey === 'eye_of_ender') {
+                this.player.swingHand();
+                if (ray && ray.blockId === B.END_PORTAL_FRAME?.id) {
+                    const frameKey = `${ray.x},${ray.y},${ray.z}`;
+                    if (!this.filledPortalFrames) this.filledPortalFrames = new Set();
+                    if (!this.filledPortalFrames.has(frameKey)) {
+                        this.filledPortalFrames.add(frameKey);
+                        this.sound.playPop();
+                        this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.9, ray.z + 0.5, 0x1cb88f, 16);
+                        if (this.player.gameMode !== 'creative') {
+                            this.inventory.consumeSelectedItem(1);
+                        }
+                        this.checkAndActivateEndPortal(ray.x, ray.y, ray.z);
+                    }
+                    return;
+                } else {
+                    // Throw Eye of Ender floating towards Stronghold portal (59, 15, 59)!
+                    this.itemManager.shootEyeOfEnder(eyeOrigin.clone().addScaledVector(dir, 0.8), new THREE.Vector3(59, 15, 59));
+                    if (this.player.gameMode !== 'creative') {
+                        this.inventory.consumeSelectedItem(1);
+                    }
+                    return;
+                }
+            }
+
             // ★ 4. Snowball (雪玉の投擲)
             if (itemKey === 'snowball') {
                 this.itemManager.throwSnowball(eyeOrigin.clone().addScaledVector(dir, 0.8), dir);
@@ -935,12 +966,10 @@
                     const py = isReplaceable ? ray.y : (ray.y + ray.normal[1]);
                     const pz = isReplaceable ? ray.z : (ray.z + ray.normal[2]);
 
-                    // Verify world bounds
-                    if (px < 0 || px >= this.world.sizeX || py < 0 || py >= this.world.sizeY || pz < 0 || pz >= this.world.sizeZ) {
-                        return;
-                    }
+                    // Height boundary check only (supports infinite X & Z coordinates)
+                    if (py <= 1 || py >= 126) return;
 
-                    // Existing block check (allow placing into AIR, WATER, LAVA, or FIRE)
+                    // Existing block check (allow placing into AIR, WATER, LAVA, or FIRE, or replaceable blocks)
                     const curTargetId = this.world.getBlock(px, py, pz);
                     const curTargetDef = window.BLOCK_BY_ID[curTargetId];
                     if (curTargetId !== B.AIR.id && curTargetId !== B.WATER.id && curTargetId !== B.LAVA.id && curTargetId !== B.FIRE?.id && !isReplaceable) {
@@ -963,15 +992,13 @@
                             this.player.y = py + 1.01;
                             this.player.velocity.y = Math.max(0, this.player.velocity.y);
                         } else {
-                            // Grazing edge nudge if close to boundary
-                            const overlapX = Math.min(placeBox.maxX, playerBox.maxX) - Math.max(placeBox.minX, playerBox.minX);
-                            const overlapZ = Math.min(placeBox.maxZ, playerBox.maxZ) - Math.max(placeBox.minZ, playerBox.minZ);
-                            if (overlapX < 0.12 && overlapZ > 0) {
-                                this.player.x += (this.player.x < px + 0.5 ? -overlapX : overlapX);
-                            } else if (overlapZ < 0.12 && overlapX > 0) {
-                                this.player.z += (this.player.z < pz + 0.5 ? -overlapZ : overlapZ);
+                            // Push player horizontally away from block center so placement NEVER fails!
+                            const dx = this.player.x - (px + 0.5);
+                            const dz = this.player.z - (pz + 0.5);
+                            if (Math.abs(dx) > Math.abs(dz)) {
+                                this.player.x = px + 0.5 + Math.sign(dx || 1) * (0.5 + pRadius + 0.05);
                             } else {
-                                return; // Obstructed by player body
+                                this.player.z = pz + 0.5 + Math.sign(dz || 1) * (0.5 + pRadius + 0.05);
                             }
                         }
                     }
@@ -1378,6 +1405,212 @@
             this.ui.addChatMessage('🏛️ ディープダーク「古代都市 (Ancient City)」の祭壇前へ移動しました！', '#44eeff');
         }
 
+        teleportToStronghold() {
+            // Stronghold End Portal Room is at wx: 59, wy: 15, wz: 59
+            this.world.updateChunksAround(59, 59, 2);
+            this.player.x = 59.5;
+            this.player.y = 16.2;
+            this.player.z = 54.5;
+            this.player.yaw = 0;
+            this.player.pitch = 0.1;
+            this.player.velocity.set(0, 0, 0);
+            this.player.fallDistance = 0;
+            this.sound.playWarp();
+            this.ui.closeModal();
+            this.ui.addChatMessage('🏰 地下要塞「エンドポータル部屋」へ移動しました！', '#aa55ff');
+        }
+
+        checkAndActivateEndPortal(fx, fy, fz) {
+            const B = window.BLOCKS;
+            if (!B.END_PORTAL) return;
+
+            let centerX = -1, centerZ = -1, centerY = fy;
+            for (let dx = -3; dx <= 3; dx++) {
+                for (let dz = -3; dz <= 3; dz++) {
+                    const cx = fx + dx;
+                    const cz = fz + dz;
+                    const nFrame = this.world.getBlock(cx, centerY, cz - 2) === B.END_PORTAL_FRAME?.id;
+                    const sFrame = this.world.getBlock(cx, centerY, cz + 2) === B.END_PORTAL_FRAME?.id;
+                    const wFrame = this.world.getBlock(cx - 2, centerY, cz) === B.END_PORTAL_FRAME?.id;
+                    const eFrame = this.world.getBlock(cx + 2, centerY, cz) === B.END_PORTAL_FRAME?.id;
+                    if (nFrame && sFrame && wFrame && eFrame) {
+                        centerX = cx;
+                        centerZ = cz;
+                        break;
+                    }
+                }
+                if (centerX !== -1) break;
+            }
+
+            if (centerX === -1) {
+                centerX = 59;
+                centerZ = 59;
+                centerY = 15;
+            }
+
+            // Fill 3x3 center with END_PORTAL blocks
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    this.world.setBlock(centerX + dx, centerY, centerZ + dz, B.END_PORTAL.id);
+                    this.itemManager.spawnBlockParticles(centerX + dx + 0.5, centerY + 0.5, centerZ + dz + 0.5, 0xbf28ff, 12);
+                }
+            }
+
+            if (this.sound && this.sound.playEndPortalOpen) this.sound.playEndPortalOpen();
+            this.ui.addChatMessage('🌌 エンドポータルが起動しました！飛び込んでエンド世界へ向かいましょう！', '#bf28ff');
+        }
+
+        enterTheEndDimension() {
+            this.currentDimension = 'the_end';
+            if (this.sound && this.sound.playEndPortalOpen) this.sound.playEndPortalOpen();
+            this.ui.addChatMessage('🌌 エンド世界へ突入しました！エンダードラゴンが待ち受けています！', '#bf28ff');
+
+            // Dark cosmic End sky & fog
+            this.scene.background = new THREE.Color(0x06020c);
+            this.scene.fog = new THREE.FogExp2(0x080312, 0.012);
+
+            // Clear old overworld chunk meshes
+            this.world.chunks.forEach(chunk => {
+                if (chunk.mesh) this.scene.remove(chunk.mesh);
+                if (chunk.waterMesh) this.scene.remove(chunk.waterMesh);
+            });
+            this.world.chunks.clear();
+
+            // Generate End Island
+            this.world.generateTheEndIsland();
+
+            // Rebuild chunk meshes
+            this.world.chunks.forEach(chunk => {
+                this.world.rebuildChunkMesh(chunk);
+            });
+
+            // Teleport player onto End Island platform
+            this.player.x = 0.5;
+            this.player.y = 66.2;
+            this.player.z = 22.5;
+            this.player.velocity.set(0, 0, 0);
+            this.player.fallDistance = 0;
+
+            // Spawn End Crystals on top of obsidian pillars
+            if (this.mobManager && this.world.endCrystalPositions) {
+                this.world.endCrystalPositions.forEach(cp => {
+                    this.mobManager.spawnMob('end_crystal', cp.x, cp.y, cp.z);
+                });
+            }
+
+            // Spawn Ender Dragon boss!
+            if (this.mobManager) {
+                this.mobManager.spawnMob('ender_dragon', 0, 80, 0);
+            }
+        }
+
+        returnToOverworld() {
+            this.currentDimension = 'overworld';
+            if (this.sound && this.sound.playWarp) this.sound.playWarp();
+            this.ui.addChatMessage('✨ オーバーワールドへ無事帰還しました！', '#55ff55');
+
+            // Reset normal sky & fog
+            this.scene.background = new THREE.Color(0x87ceeb);
+            this.scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);
+
+            // Clear End chunks
+            this.world.chunks.forEach(chunk => {
+                if (chunk.mesh) this.scene.remove(chunk.mesh);
+                if (chunk.waterMesh) this.scene.remove(chunk.waterMesh);
+            });
+            this.world.chunks.clear();
+
+            // Teleport player back to surface spawn
+            this.player.x = 8.5;
+            this.player.z = 8.5;
+            this.world.updateChunksAround(this.player.x, this.player.z, 2);
+            const surfaceY = this.world.getHighestSolidY(Math.floor(this.player.x), Math.floor(this.player.z));
+            this.player.y = surfaceY + 1.8;
+            this.player.velocity.set(0, 0, 0);
+            this.player.fallDistance = 0;
+
+            // Hide Boss Bar
+            const bossBar = document.getElementById('boss-bar-container');
+            if (bossBar) bossBar.style.display = 'none';
+        }
+
+        handleEndPortalTeleport() {
+            if (this.portalTeleportCooldown && (performance.now() - this.portalTeleportCooldown < 3000)) return;
+            this.portalTeleportCooldown = performance.now();
+
+            if (this.currentDimension === 'the_end') {
+                this.returnToOverworld();
+            } else {
+                this.enterTheEndDimension();
+            }
+        }
+
+        updateFireSimulation(dt) {
+            this.fireSimTimer = (this.fireSimTimer || 0) + dt;
+            if (this.fireSimTimer < 0.6) return;
+            this.fireSimTimer = 0;
+
+            const B = window.BLOCKS;
+            if (!B.FIRE) return;
+
+            const px = Math.floor(this.player.x);
+            const py = Math.floor(this.player.y);
+            const pz = Math.floor(this.player.z);
+
+            const flammableBlockIds = new Set([
+                B.OAK_LOG?.id, B.BIRCH_LOG?.id, B.OAK_PLANKS?.id, B.BIRCH_PLANKS?.id,
+                B.OAK_LEAVES?.id, B.BIRCH_LEAVES?.id, B.BOOKSHELF?.id, B.CRAFTING_TABLE?.id,
+                B.WOOL_WHITE?.id, B.WOOL_RED?.id, B.WOOL_BLUE?.id
+            ]);
+
+            const radius = 14;
+            for (let x = px - radius; x <= px + radius; x += 2) {
+                for (let z = pz - radius; z <= pz + radius; z += 2) {
+                    for (let y = Math.max(2, py - 6); y <= Math.min(120, py + 8); y++) {
+                        if (this.world.getBlock(x, y, z) === B.FIRE.id) {
+                            if (Math.random() < 0.35) {
+                                this.itemManager.spawnBlockParticles(x + 0.5, y + 0.8, z + 0.5, 0x555555, 1);
+                            }
+
+                            const neighbors = [
+                                [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]
+                            ];
+                            for (const [ox, oy, oz] of neighbors) {
+                                const nx = x + ox, ny = y + oy, nz = z + oz;
+                                const nbId = this.world.getBlock(nx, ny, nz);
+
+                                if (nbId === B.TNT?.id || nbId === B.CLUSTER_TNT?.id) {
+                                    this.itemManager.igniteTnt(nx, ny, nz, nbId === B.CLUSTER_TNT?.id);
+                                }
+
+                                if (flammableBlockIds.has(nbId)) {
+                                    if (Math.random() < 0.35) {
+                                        for (const [sox, soy, soz] of neighbors) {
+                                            const sx = nx + sox, sy = ny + soy, sz = nz + soz;
+                                            if (this.world.getBlock(sx, sy, sz) === B.AIR.id) {
+                                                this.world.setBlock(sx, sy, sz, B.FIRE.id);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (Math.random() < 0.15) {
+                                        this.world.setBlock(nx, ny, nz, B.AIR.id);
+                                        this.itemManager.spawnBlockParticles(nx + 0.5, ny + 0.5, nz + 0.5, 0x444444, 8);
+                                        this.sound.playBreak('wool');
+                                    }
+                                }
+                            }
+
+                            const belowId = this.world.getBlock(x, y - 1, z);
+                            if (belowId !== B.NETHERRACK?.id && Math.random() < 0.08) {
+                                this.world.setBlock(x, y, z, B.AIR.id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         respawnPlayer() {
             this.player.isDead = false;
             this.player.health = 20;
@@ -1504,6 +1737,20 @@
                     this.mobManager.update(dt, this.player, this.timeOfDay);
                     this.inventory.updateFurnace(dt);
                     this.updateEnvironment(dt);
+                    this.updateFireSimulation(dt);
+
+                    // Dynamic texture animation for flickering fire & cosmic portals
+                    if (this.atlas && this.atlas.updateAnimatedTextures) {
+                        this.atlas.updateAnimatedTextures();
+                    }
+
+                    // Check End Portal entry
+                    const blockAtFeet = this.world.getBlock(Math.floor(this.player.x), Math.floor(this.player.y + 0.1), Math.floor(this.player.z));
+                    const blockAtWaist = this.world.getBlock(Math.floor(this.player.x), Math.floor(this.player.y + 1.0), Math.floor(this.player.z));
+                    const B = window.BLOCKS;
+                    if (B.END_PORTAL && (blockAtFeet === B.END_PORTAL.id || blockAtWaist === B.END_PORTAL.id)) {
+                        this.handleEndPortalTeleport();
+                    }
 
                     // Authentic Hand Bobbing & Swinging Animation
                     const isMoving = (this.input.keys['KeyW'] || this.input.keys['KeyS'] || this.input.keys['KeyA'] || this.input.keys['KeyD']) && this.player.onGround;

@@ -345,6 +345,11 @@
                 this.generateVillageHouse(chunk, surfaceHeights);
             }
 
+            // ★ Generate Authentic Underground STRONGHOLD (要塞 & エンドポータル部屋) in chunk (3, 3 -> wx: 48..63, wz: 48..63)
+            if (cx === 3 && cz === 3) {
+                this.generateStronghold(chunk, surfaceHeights);
+            }
+
             chunk.generated = true;
         }
 
@@ -534,6 +539,151 @@
             chunk.setBlock(6, baseH + 1, 9, B.FURNACE.id);
             chunk.setBlock(9, baseH + 1, 9, B.CHEST.id);
             chunk.setBlock(7, baseH + 3, 7, B.TORCH.id);
+        }
+
+        // ★ Authentic Minecraft Underground STRONGHOLD & End Portal Room Generator
+        generateStronghold(chunk, surfaceHeights) {
+            const B = window.BLOCKS;
+            const floorY = 12;
+            const ceilY = 22;
+
+            // 1. Excavate underground area and line with Stone Bricks
+            for (let lx = 0; lx < CHUNK_SIZE_X; lx++) {
+                for (let lz = 0; lz < CHUNK_SIZE_Z; lz++) {
+                    chunk.setBlock(lx, floorY, lz, (lx + lz) % 7 === 0 ? B.CRACKED_STONE_BRICKS.id : ((lx + lz) % 5 === 0 ? B.MOSSY_COBBLESTONE.id : B.STONE_BRICKS.id));
+                    chunk.setBlock(lx, ceilY, lz, B.STONE_BRICKS.id);
+                    for (let y = floorY + 1; y < ceilY; y++) {
+                        chunk.setBlock(lx, y, lz, B.AIR.id);
+                    }
+                    if (lx === 0 || lx === 15 || lz === 0 || lz === 15) {
+                        for (let y = floorY + 1; y < ceilY; y++) {
+                            chunk.setBlock(lx, y, lz, (y + lx + lz) % 6 === 0 ? B.CRACKED_STONE_BRICKS.id : B.STONE_BRICKS.id);
+                        }
+                    }
+                }
+            }
+
+            // 2. Stronghold Corridor & Iron Bars Jail (lx: 1..6, lz: 1..14)
+            for (let lz = 1; lz <= 14; lz++) {
+                chunk.setBlock(6, floorY + 1, lz, B.STONE_BRICKS.id);
+                chunk.setBlock(6, floorY + 2, lz, (lz === 7 || lz === 8) ? B.AIR.id : B.IRON_BARS.id);
+                chunk.setBlock(6, floorY + 3, lz, (lz === 7 || lz === 8) ? B.AIR.id : B.IRON_BARS.id);
+                chunk.setBlock(6, floorY + 4, lz, B.STONE_BRICKS.id);
+            }
+
+            // Stronghold Chest in Library/Jail (lx: 2, lz: 4)
+            chunk.setBlock(2, floorY + 1, 4, B.CHEST.id);
+            // Bookshelves in corridor
+            for (let by = floorY + 1; by <= floorY + 3; by++) {
+                chunk.setBlock(1, by, 2, B.BOOKSHELF.id);
+                chunk.setBlock(1, by, 3, B.BOOKSHELF.id);
+                chunk.setBlock(2, by, 1, B.BOOKSHELF.id);
+                chunk.setBlock(3, by, 1, B.BOOKSHELF.id);
+            }
+            chunk.setBlock(3, floorY + 1, 3, B.CRAFTING_TABLE.id);
+            chunk.setBlock(1, floorY + 3, 5, B.TORCH.id);
+
+            // 3. The End Portal Room (lx: 7..14, lz: 7..14)
+            // Center of portal is at lx = 11, lz = 11, Y = 15
+            const portalCenterX = 11;
+            const portalCenterZ = 11;
+            const portalY = 15;
+
+            // Lava Pool at Y = 14 (3x3)
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    chunk.setBlock(portalCenterX + dx, portalY - 1, portalCenterZ + dz, B.LAVA.id);
+                    chunk.setBlock(portalCenterX + dx, portalY, portalCenterZ + dz, B.AIR.id); // Center starts as AIR
+                }
+            }
+
+            // 12 End Portal Frames surrounding the 3x3 lava pool at Y = 15
+            for (let dx = -1; dx <= 1; dx++) {
+                chunk.setBlock(portalCenterX + dx, portalY, portalCenterZ - 2, B.END_PORTAL_FRAME.id); // North
+                chunk.setBlock(portalCenterX + dx, portalY, portalCenterZ + 2, B.END_PORTAL_FRAME.id); // South
+            }
+            for (let dz = -1; dz <= 1; dz++) {
+                chunk.setBlock(portalCenterX - 2, portalY, portalCenterZ + dz, B.END_PORTAL_FRAME.id); // West
+                chunk.setBlock(portalCenterX + 2, portalY, portalCenterZ + dz, B.END_PORTAL_FRAME.id); // East
+            }
+
+            // Portal room torches
+            chunk.setBlock(7, floorY + 3, 7, B.TORCH.id);
+            chunk.setBlock(14, floorY + 3, 7, B.TORCH.id);
+            chunk.setBlock(7, floorY + 3, 14, B.TORCH.id);
+            chunk.setBlock(14, floorY + 3, 14, B.TORCH.id);
+
+            // 4. Staircase ascending to surface at lx: 2, lz: 13
+            const baseH = surfaceHeights ? (surfaceHeights[13 * CHUNK_SIZE_X + 2] || 24) : 24;
+            let curY = floorY + 1;
+            for (let step = 0; step < 10 && curY < baseH; step++) {
+                const sy = curY + step;
+                chunk.setBlock(2, sy, 13, B.COBBLESTONE.id);
+                chunk.setBlock(2, sy + 1, 13, B.AIR.id);
+                chunk.setBlock(2, sy + 2, 13, B.AIR.id);
+                chunk.setBlock(2, sy + 3, 13, B.AIR.id);
+            }
+        }
+
+        // ★ Authentic The End Dimension Generator (End Stone Island, Obsidian Pillars, End Crystals, Ender Dragon)
+        generateTheEndIsland() {
+            const B = window.BLOCKS;
+
+            // Generate central 80x80 floating End Stone Island
+            const islandRadius = 38;
+            for (let x = -islandRadius; x <= islandRadius; x++) {
+                for (let z = -islandRadius; z <= islandRadius; z++) {
+                    const distSq = (x * x) / (islandRadius * islandRadius) + (z * z) / (islandRadius * islandRadius);
+                    if (distSq <= 1.0) {
+                        const edgeFactor = 1.0 - distSq;
+                        const topY = Math.floor(62 + edgeFactor * 4);
+                        const bottomY = Math.floor(58 - edgeFactor * 14);
+                        for (let y = bottomY; y <= topY; y++) {
+                            this.setBlock(x, y, z, B.END_STONE.id);
+                        }
+                    }
+                }
+            }
+
+            // 8 Tall Obsidian Pillars surrounding the island at radius 26
+            const numPillars = 8;
+            const pillarRadius = 26;
+            this.endCrystalPositions = [];
+            for (let i = 0; i < numPillars; i++) {
+                const angle = (i / numPillars) * Math.PI * 2;
+                const px = Math.round(Math.cos(angle) * pillarRadius);
+                const pz = Math.round(Math.sin(angle) * pillarRadius);
+                const pillarHeight = 76 + (i % 3) * 6; // Y = 76, 82, 88
+                for (let y = 60; y <= pillarHeight; y++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dz = -1; dz <= 1; dz++) {
+                            this.setBlock(px + dx, y, pz + dz, B.OBSIDIAN.id);
+                        }
+                    }
+                }
+                this.endCrystalPositions.push({ x: px, y: pillarHeight + 1, z: pz });
+            }
+
+            // Center Exit Bedrock Portal Structure at (0, 62, 0)
+            for (let dx = -2; dx <= 2; dx++) {
+                for (let dz = -2; dz <= 2; dz++) {
+                    const isBorder = (Math.abs(dx) === 2 || Math.abs(dz) === 2);
+                    if (isBorder) {
+                        this.setBlock(dx, 62, dz, B.BEDROCK.id);
+                    } else if (dx === 0 && dz === 0) {
+                        for (let y = 62; y <= 66; y++) {
+                            this.setBlock(0, y, 0, B.BEDROCK.id);
+                        }
+                        this.setBlock(1, 66, 0, B.TORCH.id);
+                        this.setBlock(-1, 66, 0, B.TORCH.id);
+                        this.setBlock(0, 66, 1, B.TORCH.id);
+                        this.setBlock(0, 66, -1, B.TORCH.id);
+                    } else {
+                        this.setBlock(dx, 61, dz, B.BEDROCK.id);
+                        this.setBlock(dx, 62, dz, B.AIR.id); // Will become END_PORTAL upon dragon defeat!
+                    }
+                }
+            }
         }
 
         generateTree(chunk, x, y, z, type = 'oak') {

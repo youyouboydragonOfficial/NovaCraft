@@ -99,6 +99,14 @@
                 bow: '🏹弓',
                 arrow: '矢',
                 ender_pearl: '🟣パール',
+                eye_of_ender: '🟣エンダーアイ',
+                blaze_rod: '🔥ブレイズ棒',
+                blaze_powder: 'ブレイズ粉',
+                dragon_breath: 'ドラゴン息',
+                elytra: '🪽エリトラ',
+                dragon_egg: '🥚竜の卵',
+                end_stone: 'エンド石',
+                end_portal_frame: 'ポータル枠',
                 bone_meal: '骨粉',
                 sapling: '🌲苗木',
                 shears: '✂️ハサミ',
@@ -494,6 +502,7 @@
                 'bricks', 'stone_bricks', 'glass', 'glowstone',
                 'torch', 'bed', 'water_bucket', 'lava_bucket',
                 'bucket', 'bow', 'arrow', 'ender_pearl',
+                'eye_of_ender', 'elytra', 'dragon_egg', 'end_portal_frame',
                 'bone_meal', 'sapling', 'shears', 'spyglass',
                 'diamond_sword', 'netherite_sword', 'diamond_pickaxe', 'netherite_pickaxe',
                 'astral_blade', 'laser_drill', 'gravity_boots', 'jetpack'
@@ -582,6 +591,12 @@
                 }
             } else if (cmd === '/ancient' || cmd === '/locate') {
                 this.game.teleportToAncientCity();
+            } else if (cmd === '/theend' || cmd === '/end') {
+                this.game.enterTheEndDimension();
+            } else if (cmd === '/stronghold') {
+                this.game.teleportToStronghold();
+            } else if (cmd === '/overworld') {
+                this.game.returnToOverworld();
             } else if (cmd === '/time') {
                 if (parts[1] === 'set') {
                     if (parts[2] === 'day') {
@@ -613,7 +628,7 @@
                     this.addChatMessage(`座標 (${tx}, ${ty}, ${tz}) にテレポートしました。`, '#55ff55');
                 }
             } else if (cmd === '/help') {
-                this.addChatMessage('利用可能なコマンド: /gamemode [creative|survival], /ancient (古代都市へ移動), /time set [day|night], /give [item] [count], /tp [x] [y] [z]', '#aaffaa');
+                this.addChatMessage('利用可能なコマンド: /gamemode [creative|survival], /theend (エンド世界), /stronghold (要塞), /overworld (地上), /ancient (古代都市), /time set [day|night], /give [item] [count], /tp [x] [y] [z]', '#aaffaa');
             } else {
                 this.addChatMessage(`不明なコマンドです: ${cmd} (/help で一覧表示)`, '#ff5555');
             }

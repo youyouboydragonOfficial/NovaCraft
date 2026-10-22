@@ -42,14 +42,94 @@
             this.canvas.width = ATLAS_WIDTH;
             this.canvas.height = ATLAS_HEIGHT;
             this.ctx = this.canvas.getContext('2d');
+            this.texture = null;
+            this.lastAnimUpdate = 0;
             this.generateAllTextures();
         }
 
         getTexture() {
-            const texture = new THREE.CanvasTexture(this.canvas);
-            texture.magFilter = THREE.NearestFilter;
-            texture.minFilter = THREE.NearestFilter;
-            return texture;
+            if (!this.texture) {
+                this.texture = new THREE.CanvasTexture(this.canvas);
+                this.texture.magFilter = THREE.NearestFilter;
+                this.texture.minFilter = THREE.NearestFilter;
+            }
+            return this.texture;
+        }
+
+        // Real-time procedural animation for Fire, Nether Portal & End Portal!
+        updateAnimatedTextures(time) {
+            if (!this.texture) return;
+            const now = performance.now();
+            if (now - this.lastAnimUpdate < 50) return; // ~20 FPS texture animation, fully smooth & lightweight
+            this.lastAnimUpdate = now;
+
+            const ctx = this.ctx;
+
+            // 1. Animated Fire (Flickering flames & rising sparks)
+            const fireSlot = TEXTURE_SLOTS['fire'];
+            if (fireSlot !== undefined) {
+                const sx = (fireSlot % ATLAS_SLOTS_X) * TEX_SIZE;
+                const sy = Math.floor(fireSlot / ATLAS_SLOTS_X) * TEX_SIZE;
+                ctx.clearRect(sx, sy, 16, 16);
+
+                const t = now * 0.009;
+                for (let x = 1; x <= 14; x++) {
+                    const wave = Math.sin(x * 1.6 + t * 4.2) * 2.8 + Math.cos(x * 0.9 - t * 3.1) * 2.0;
+                    const flameH = Math.max(3, Math.min(14, Math.floor(6 + wave + Math.sin(t * 8.5 + x * 2.3) * 1.8)));
+                    for (let y = 15; y >= 16 - flameH; y--) {
+                        const heightFrac = (16 - y) / flameH;
+                        if (heightFrac < 0.38) {
+                            ctx.fillStyle = `rgb(255, ${235 + Math.floor(Math.sin(t + x) * 20)}, 95)`;
+                        } else if (heightFrac < 0.72) {
+                            ctx.fillStyle = `rgb(255, ${125 + Math.floor(Math.cos(t * 2 + y) * 35)}, 18)`;
+                        } else {
+                            ctx.fillStyle = `rgba(235, ${40 + Math.floor(Math.sin(t * 3 + x) * 25)}, 12, 0.92)`;
+                        }
+                        ctx.fillRect(sx + x, sy + y, 1, 1);
+                    }
+                }
+            }
+
+            // 2. Animated Nether Portal (Swirling purple vortex)
+            const portalSlot = TEXTURE_SLOTS['nether_portal'];
+            if (portalSlot !== undefined) {
+                const sx = (portalSlot % ATLAS_SLOTS_X) * TEX_SIZE;
+                const sy = Math.floor(portalSlot / ATLAS_SLOTS_X) * TEX_SIZE;
+                const t = now * 0.0035;
+                for (let py = 0; py < 16; py++) {
+                    for (let px = 0; px < 16; px++) {
+                        const swirl = Math.sin((px - 7.5) * 0.65 + t * 2.5) * Math.cos((py - 7.5) * 0.65 + t * 1.8);
+                        const r = Math.floor(145 + swirl * 60);
+                        const g = Math.floor(22 + Math.sin(t * 3 + px) * 18);
+                        const b = Math.floor(220 + swirl * 35);
+                        ctx.fillStyle = `rgba(${r},${g},${b},0.88)`;
+                        ctx.fillRect(sx + px, sy + py, 1, 1);
+                    }
+                }
+            }
+
+            // 3. Animated End Portal (Starry cosmic void)
+            const endPortalSlot = TEXTURE_SLOTS['end_portal'];
+            if (endPortalSlot !== undefined) {
+                const sx = (endPortalSlot % ATLAS_SLOTS_X) * TEX_SIZE;
+                const sy = Math.floor(endPortalSlot / ATLAS_SLOTS_X) * TEX_SIZE;
+                ctx.fillStyle = '#05020a';
+                ctx.fillRect(sx, sy, 16, 16);
+
+                const t = now * 0.003;
+                for (let i = 0; i < 20; i++) {
+                    const stx = Math.floor((Math.sin(i * 123.45) * 0.5 + 0.5) * 16);
+                    const sty = Math.floor((Math.cos(i * 678.91) * 0.5 + 0.5) * 16);
+                    const twinkle = Math.sin(t * 3.5 + i * 1.8) * 0.5 + 0.5;
+                    if (twinkle > 0.28) {
+                        const br = Math.floor(160 + twinkle * 95);
+                        ctx.fillStyle = (i % 3 === 0) ? `rgb(${br}, ${Math.floor(br * 0.6)}, ${br})` : `rgb(${Math.floor(br * 0.8)}, ${br}, 255)`;
+                        ctx.fillRect(sx + stx, sy + sty, 1, 1);
+                    }
+                }
+            }
+
+            this.texture.needsUpdate = true;
         }
 
         // Returns UV coordinates [uMin, vMin, uMax, vMax] for a given slot name
@@ -834,6 +914,94 @@
                     this.drawPixel('netherite_block', x, y, isBorder ? 45 : 68, isBorder ? 40 : 62, isBorder ? 48 : 70);
                 }
             }
+
+            // ★ 47. THE END & STRONGHOLD (End Stone, End Bricks, Purpur, End Portal Frame, Dragon Egg, Iron Bars)
+            const rngEnd = createRNG(7771);
+            for (let y = 0; y < 16; y++) {
+                for (let x = 0; x < 16; x++) {
+                    const n = rngEnd();
+
+                    // End Stone (Pale yellow-green speckled stone)
+                    const esV = Math.floor(212 + n * 30);
+                    this.drawPixel('end_stone', x, y, esV, esV + 4, Math.floor(esV * 0.76));
+
+                    // End Stone Bricks (Carved pale stone bricks)
+                    const isBrickH = (y % 4 === 0);
+                    const isBrickV = ((y < 4 || (y >= 8 && y < 12)) ? (x % 8 === 0) : ((x + 4) % 8 === 0));
+                    const isMortar = isBrickH || isBrickV;
+                    const ebV = isMortar ? 165 : Math.floor(218 + n * 24);
+                    this.drawPixel('end_stone_bricks', x, y, ebV, ebV + 3, Math.floor(ebV * 0.75));
+
+                    // Purpur Block (Vibrant magenta end city block)
+                    const isPurpurBorder = (x === 0 || x === 15 || y === 0 || y === 15);
+                    const purpurV = isPurpurBorder ? 140 : Math.floor(170 + n * 25);
+                    this.drawPixel('purpur_block', x, y, purpurV, Math.floor(purpurV * 0.65), purpurV);
+
+                    // End Portal Frame - Top (Bronze-green rim with dark center basin)
+                    const distFromCenter = Math.hypot(x - 7.5, y - 7.5);
+                    if (distFromCenter > 5.5) {
+                        this.drawPixel('end_portal_frame_top', x, y, 48, 85, 62);
+                        this.drawPixel('end_portal_frame_eye', x, y, 48, 85, 62);
+                    } else if (distFromCenter > 3.8) {
+                        this.drawPixel('end_portal_frame_top', x, y, 32, 60, 45);
+                        this.drawPixel('end_portal_frame_eye', x, y, 32, 60, 45);
+                    } else {
+                        // Center basin
+                        this.drawPixel('end_portal_frame_top', x, y, 16, 28, 22);
+                        // With Eye of Ender inserted:
+                        if (distFromCenter < 1.2) {
+                            this.drawPixel('end_portal_frame_eye', x, y, 15, 15, 20); // Dark slit pupil
+                        } else if (distFromCenter < 2.5) {
+                            this.drawPixel('end_portal_frame_eye', x, y, 255, 195, 20); // Gold iris
+                        } else {
+                            this.drawPixel('end_portal_frame_eye', x, y, 25, 185, 140); // Teal eye body
+                        }
+                    }
+
+                    // End Portal Frame - Side (Bronze rim top + pale end stone bottom)
+                    if (y < 4) {
+                        this.drawPixel('end_portal_frame_side', x, y, 45, 82, 60);
+                    } else if (y === 4) {
+                        this.drawPixel('end_portal_frame_side', x, y, 30, 55, 40);
+                    } else {
+                        const esSideV = Math.floor(215 + n * 26);
+                        this.drawPixel('end_portal_frame_side', x, y, esSideV, esSideV + 3, Math.floor(esSideV * 0.76));
+                    }
+
+                    // End Portal (Starry cosmic void)
+                    this.drawPixel('end_portal', x, y, 6, 2, 12, 235);
+
+                    // End Rod (White glowing rod + dark base)
+                    if (x >= 6 && x <= 9 && y >= 1 && y <= 13) {
+                        this.drawPixel('end_rod', x, y, 250, 248, 255, 255);
+                    } else if (x >= 5 && x <= 10 && y >= 14) {
+                        this.drawPixel('end_rod', x, y, 35, 25, 45, 255);
+                    } else {
+                        this.drawPixel('end_rod', x, y, 0, 0, 0, 0);
+                    }
+
+                    // Dragon Egg (Obsidian black with purple crystalline sparkles)
+                    const isSparkle = (n > 0.82);
+                    const eggV = Math.floor(20 + n * 18);
+                    this.drawPixel('dragon_egg', x, y, isSparkle ? 180 : eggV, isSparkle ? 45 : Math.floor(eggV * 0.8), isSparkle ? 245 : eggV + 8);
+
+                    // Cracked Stone Bricks (Stone brick with fracture cracks)
+                    const isCrack = ((x === 6 && y > 2 && y < 10) || (x === 7 && y > 5 && y < 13) || (y === 8 && x > 4 && x < 12));
+                    const sbV = isCrack ? 48 : (isMortar ? 85 : Math.floor(125 + n * 30));
+                    this.drawPixel('cracked_stone_bricks', x, y, sbV, sbV, sbV);
+
+                    // Iron Bars (Thin cross lattice of steel bars)
+                    const isBarH = (y === 3 || y === 4 || y === 11 || y === 12);
+                    const isBarV = (x === 3 || x === 4 || x === 11 || x === 12);
+                    if (isBarH || isBarV) {
+                        const isBarHighlight = (x === 3 || y === 3);
+                        const barCol = isBarHighlight ? 210 : 155;
+                        this.drawPixel('iron_bars', x, y, barCol, barCol + 4, barCol + 10, 255);
+                    } else {
+                        this.drawPixel('iron_bars', x, y, 0, 0, 0, 0);
+                    }
+                }
+            }
         }
 
         // Returns UV mapping object for a block type
@@ -998,6 +1166,26 @@
                 case B.NETHERITE_BLOCK?.id:
                     return { all: 'netherite_block' };
 
+                // ★ エンド & 要塞ブロック (The End & Stronghold)
+                case B.END_PORTAL_FRAME?.id:
+                    return { top: 'end_portal_frame_top', bottom: 'end_stone', side: 'end_portal_frame_side' };
+                case B.END_PORTAL?.id:
+                    return { all: 'end_portal' };
+                case B.END_STONE?.id:
+                    return { all: 'end_stone' };
+                case B.END_STONE_BRICKS?.id:
+                    return { all: 'end_stone_bricks' };
+                case B.PURPUR_BLOCK?.id:
+                    return { all: 'purpur_block' };
+                case B.END_ROD?.id:
+                    return { all: 'end_rod' };
+                case B.DRAGON_EGG?.id:
+                    return { all: 'dragon_egg' };
+                case B.CRACKED_STONE_BRICKS?.id:
+                    return { all: 'cracked_stone_bricks' };
+                case B.IRON_BARS?.id:
+                    return { all: 'iron_bars' };
+
                 default:
                     return { all: 'stone' };
             }
@@ -1067,7 +1255,9 @@
                 itemKey === 'soul_lantern' ||
                 itemKey === 'ladder' ||
                 itemKey === 'fire' ||
-                itemKey === 'nether_portal'
+                itemKey === 'nether_portal' ||
+                itemKey === 'iron_bars' ||
+                itemKey === 'end_rod'
             );
 
             if (itemDef?.blockId && !isFlatBlock) {
@@ -1262,6 +1452,62 @@
                         octx.fillRect(4, 4, 8, 8);
                         octx.fillStyle = '#aaffee';
                         octx.fillRect(6, 5, 3, 3);
+                    } else if (itemKey === 'eye_of_ender') {
+                        // ★ Eye of Ender (Teal crystal + gold glowing iris + vertical slit)
+                        octx.fillStyle = '#0a362e';
+                        octx.fillRect(3, 3, 10, 10);
+                        octx.fillStyle = '#1cb88f';
+                        octx.fillRect(4, 4, 8, 8);
+                        octx.fillStyle = '#ffcc00'; // Gold iris
+                        octx.fillRect(6, 5, 4, 6);
+                        octx.fillStyle = '#0e121a'; // Pupil slit
+                        octx.fillRect(7, 6, 2, 4);
+                        octx.fillStyle = '#ffffff'; // White glint
+                        octx.fillRect(6, 5, 1, 1);
+                    } else if (itemKey === 'blaze_rod') {
+                        // ★ Blaze Rod (Fiery incandescent rod)
+                        octx.fillStyle = '#e65c00';
+                        octx.fillRect(5, 2, 6, 12);
+                        octx.fillStyle = '#ffbb00';
+                        octx.fillRect(6, 3, 4, 10);
+                        octx.fillStyle = '#ffffff';
+                        octx.fillRect(7, 4, 2, 8);
+                    } else if (itemKey === 'blaze_powder') {
+                        // ★ Blaze Powder (Glowing ember powder)
+                        octx.fillStyle = '#cc4400';
+                        octx.fillRect(3, 7, 10, 6);
+                        octx.fillStyle = '#ffaa00';
+                        octx.fillRect(4, 5, 8, 6);
+                        octx.fillStyle = '#ffff66';
+                        octx.fillRect(6, 4, 4, 4);
+                    } else if (itemKey === 'dragon_breath') {
+                        // ★ Dragon Breath (Glass bottle with mystical magenta breath)
+                        octx.fillStyle = '#c5d5e2'; // Bottle neck & rim
+                        octx.fillRect(6, 2, 4, 3);
+                        octx.fillRect(4, 5, 8, 9);
+                        octx.fillStyle = '#b822d6'; // Purple smoke
+                        octx.fillRect(5, 7, 6, 6);
+                        octx.fillStyle = '#ffaaff';
+                        octx.fillRect(6, 8, 4, 3);
+                    } else if (itemKey === 'elytra') {
+                        // ★ Elytra Wings (Gray/purple gliding elytra wings)
+                        octx.fillStyle = '#3a3f47';
+                        octx.fillRect(3, 2, 10, 4);
+                        octx.fillRect(2, 6, 5, 8);
+                        octx.fillRect(9, 6, 5, 8);
+                        octx.fillStyle = '#7a8896';
+                        octx.fillRect(3, 7, 3, 6);
+                        octx.fillRect(10, 7, 3, 6);
+                    } else if (itemKey === 'dragon_egg') {
+                        // ★ Dragon Egg (Obsidian black egg with purple sparkles)
+                        octx.fillStyle = '#120f18';
+                        octx.fillRect(4, 2, 8, 12);
+                        octx.fillRect(3, 5, 10, 7);
+                        octx.fillStyle = '#5c1b8a';
+                        octx.fillRect(5, 4, 6, 8);
+                        octx.fillStyle = '#dd66ff';
+                        octx.fillRect(6, 6, 2, 2);
+                        octx.fillRect(8, 9, 2, 2);
                     } else if (itemKey === 'spyglass') {
                         octx.fillStyle = '#e08035';
                         octx.fillRect(3, 9, 5, 5);

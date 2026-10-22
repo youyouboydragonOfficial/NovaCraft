@@ -15,7 +15,7 @@ namespace NovaCraftInstaller
         private Button startButton;
         private string appName = "NovaCraft";
         private string installDir;
-        private string releaseZipUrl = "https://github.com/youyouboydragonOfficial/NovaCraft/releases/download/v1.8.0/NovaCraft-Windows-v1.8.0.zip";
+        private string releaseZipUrl = "https://github.com/youyouboydragonOfficial/NovaCraft/releases/download/v2.0.0/NovaCraft-Windows-v2.0.0.zip";
 
         [STAThread]
         public static void Main(string[] args)

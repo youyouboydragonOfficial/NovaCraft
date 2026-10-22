@@ -8,6 +8,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationTitle>NovaCraft - Ultimate Voxel Sandbox</ApplicationTitle>
     <AssemblyName>NovaCraft</AssemblyName>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -222,41 +222,97 @@
                     if (input.keys['Space']) this.velocity.y = 4.0;
                     else this.velocity.y = Math.max(this.velocity.y - 8.0 * dt, -3.0);
                 } else {
-                    if (input.keys['Space'] && this.onGround) {
-                        const jumpPower = hasGravityBoots ? 13.5 : 9.0;
-                        this.velocity.y = jumpPower;
-                        this.onGround = false;
-                        this.sound.playStep('grass');
+                    const hasElytra = this.inventory?.hasItem('elytra') || this.isGliding;
+                    if (input.keys['Space'] && !this.onGround && !this.inWater && hasElytra && this.velocity.y < 0) {
+                        this.isGliding = true;
                     }
-                    this.velocity.y = Math.max(this.velocity.y - this.physics.gravity * dt, -this.physics.terminalVelocity);
+                    if (this.onGround || this.inWater) {
+                        this.isGliding = false;
+                    }
+
+                    if (this.isGliding) {
+                        // Smooth majestic gliding with pitch and yaw
+                        this.fallDistance = 0;
+                        const glideSpeed = 16.0;
+                        const fwdX = -Math.sin(this.yaw);
+                        const fwdZ = -Math.cos(this.yaw);
+                        this.velocity.x = fwdX * glideSpeed;
+                        this.velocity.z = fwdZ * glideSpeed;
+                        this.velocity.y = Math.max(-2.2, Math.sin(this.pitch) * 12.0 - 1.2);
+                    } else {
+                        if (input.keys['Space'] && this.onGround) {
+                            const jumpPower = hasGravityBoots ? 13.5 : 9.0;
+                            this.velocity.y = jumpPower;
+                            this.onGround = false;
+                            this.sound.playStep('grass');
+                        }
+                        this.velocity.y = Math.max(this.velocity.y - this.physics.gravity * dt, -this.physics.terminalVelocity);
+                    }
                 }
             }
 
             // Apply physics
             this.physics.moveEntity(this, this.velocity, dt);
 
-            // ★ Void Safety Anchor ONLY (Does NOT teleport player upward when under trees, roofs, or inside Underground Ancient City!)
+            // ★ Void Safety Anchor ONLY in Overworld (Allows falling into void in The End!)
             if (this.y < 0.5 || isNaN(this.y)) {
-                const surfaceY = this.world.getHighestSolidY(Math.floor(this.x), Math.floor(this.z));
-                this.y = surfaceY + 1.8;
-                this.velocity.set(0, 0, 0);
-                this.fallDistance = 0;
-                this.onGround = true;
+                if (this.game?.currentDimension === 'the_end') {
+                    if (this.y < -15) {
+                        if (this.gameMode === 'survival') {
+                            this.takeDamage(4, 'void');
+                        } else {
+                            this.y = 66;
+                            this.velocity.set(0, 0, 0);
+                        }
+                    }
+                } else {
+                    const surfaceY = this.world.getHighestSolidY(Math.floor(this.x), Math.floor(this.z));
+                    this.y = surfaceY + 1.8;
+                    this.velocity.set(0, 0, 0);
+                    this.fallDistance = 0;
+                    this.onGround = true;
+                }
             }
 
             // Survival mechanics: Hunger, Oxygen, Fire & Lava
-            if (this.gameMode === 'survival') {
-                // Fire & Lava burn damage
-                const inFire = (B.FIRE && (blockAtFeet === B.FIRE.id || blockAtWaist === B.FIRE.id));
-                if ((this.inLava || inFire) && !this.inWater) {
-                    this.burnTimer = (this.burnTimer || 0) + dt;
-                    if (this.burnTimer > 0.8) {
-                        this.takeDamage(this.inLava ? 3 : 1, 'fire');
-                        this.burnTimer = 0;
-                    }
-                } else {
-                    this.burnTimer = 0;
+            const inFire = (B.FIRE && (blockAtFeet === B.FIRE.id || blockAtWaist === B.FIRE.id));
+            if (this.inLava) {
+                this.fireTicks = 300; // 15 seconds from lava
+            } else if (inFire) {
+                this.fireTicks = Math.max(this.fireTicks || 0, 160); // 8 seconds from fire
+            }
+
+            // Water instantly extinguishes fire!
+            if (this.inWater && this.fireTicks > 0) {
+                this.fireTicks = 0;
+                if (this.sound && this.sound.playFireExtinguish) this.sound.playFireExtinguish();
+                if (this.game?.itemManager) {
+                    this.game.itemManager.spawnBlockParticles(this.x, this.y + 0.6, this.z, 0xdddddd, 14);
                 }
+                if (this.game?.ui) {
+                    this.game.ui.addChatMessage('💧 水に入って火が消えました！', '#55ffff');
+                }
+            }
+
+            // Burning tick damage and screen overlay
+            const fireOverlay = document.getElementById('fire-overlay');
+            if (this.fireTicks > 0) {
+                this.fireTicks -= dt * 20;
+                if (this.gameMode === 'survival') {
+                    this.burnTimer = (this.burnTimer || 0) + dt;
+                    if (this.burnTimer >= 1.0) {
+                        this.takeDamage(this.inLava ? 2 : 1, 'fire');
+                        this.burnTimer = 0;
+                        if (this.sound) this.sound.playPlayerHurt();
+                    }
+                }
+                if (fireOverlay) fireOverlay.style.display = 'block';
+            } else {
+                this.burnTimer = 0;
+                if (fireOverlay) fireOverlay.style.display = 'none';
+            }
+
+            if (this.gameMode === 'survival') {
 
                 // Oxygen in water: ONLY consume when head is actually submerged under water!
                 if (this.headInWater) {

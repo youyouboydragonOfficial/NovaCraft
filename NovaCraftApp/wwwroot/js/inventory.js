@@ -69,6 +69,13 @@
             return this.slots[this.selectedHotbarIndex];
         }
 
+        hasItem(itemKey) {
+            for (let i = 0; i < 36; i++) {
+                if (this.slots[i] && this.slots[i].item === itemKey) return true;
+            }
+            return false;
+        }
+
         addItem(itemKey, count = 1) {
             const itemDef = window.ITEMS[itemKey];
             if (!itemDef) return false;

@@ -104,6 +104,32 @@
             });
         }
 
+        // Throw Eye of Ender (Ascends and glides towards Stronghold portal!)
+        shootEyeOfEnder(origin, targetPos) {
+            const geo = new THREE.BoxGeometry(0.26, 0.26, 0.26);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x1cb88f });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(origin);
+            this.scene.add(mesh);
+
+            const toTarget = new THREE.Vector3(targetPos.x - origin.x, 0, targetPos.z - origin.z).normalize();
+            toTarget.y = 0.55;
+            toTarget.normalize();
+
+            if (this.sound && this.sound.playPop) {
+                this.sound.playPop();
+            }
+
+            this.projectiles.push({
+                mesh: mesh,
+                type: 'eye_of_ender',
+                vel: toTarget.multiplyScalar(11.0),
+                gravity: -0.8, // Gently ascends into the sky
+                damage: 0,
+                life: 4.2
+            });
+        }
+
         // Throw Snowball
         throwSnowball(origin, direction) {
             const geo = new THREE.BoxGeometry(0.20, 0.20, 0.20);
@@ -399,6 +425,8 @@
                     this.spawnBlockParticles(nextPos.x, nextPos.y, nextPos.z, 0xff5500, 1);
                 } else if (proj.type === 'ender_pearl' && Math.random() < 0.4) {
                     this.spawnBlockParticles(nextPos.x, nextPos.y, nextPos.z, 0xaa33ff, 1);
+                } else if (proj.type === 'eye_of_ender' && Math.random() < 0.5) {
+                    this.spawnBlockParticles(nextPos.x, nextPos.y, nextPos.z, 0x1cb88f, 1);
                 }
 
                 // Check collision with Mobs

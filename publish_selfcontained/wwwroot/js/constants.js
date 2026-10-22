@@ -81,7 +81,18 @@
         REDSTONE_BLOCK: { id: 73, name: 'Block of Redstone', nameJa: 'レッドストーンブロック', solid: true, hardness: 5.0, tool: 'pickaxe', drop: 'redstone_block', light: 0.5, sound: 'metal' },
         EMERALD_BLOCK: { id: 74, name: 'Block of Emerald', nameJa: 'エメラルドブロック', solid: true, hardness: 5.0, tool: 'pickaxe', drop: 'emerald_block', sound: 'metal' },
         LAPIS_BLOCK: { id: 75, name: 'Block of Lapis', nameJa: 'ラピスラズリブロック', solid: true, hardness: 3.0, tool: 'pickaxe', drop: 'lapis_block', sound: 'stone' },
-        NETHERITE_BLOCK: { id: 76, name: 'Block of Netherite', nameJa: 'ネザライトブロック', solid: true, hardness: 12.0, tool: 'pickaxe', drop: 'netherite_block', sound: 'metal' }
+        NETHERITE_BLOCK: { id: 76, name: 'Block of Netherite', nameJa: 'ネザライトブロック', solid: true, hardness: 12.0, tool: 'pickaxe', drop: 'netherite_block', sound: 'metal' },
+
+        // ★ エンド (The End) & 要塞 (Stronghold) ブロック
+        END_PORTAL_FRAME: { id: 77, name: 'End Portal Frame', nameJa: 'エンドポータルフレーム', solid: true, hardness: Infinity, tool: 'none', sound: 'glass', drop: null },
+        END_PORTAL: { id: 78, name: 'End Portal', nameJa: 'エンドポータル', solid: false, transparent: true, hardness: Infinity, light: 1.0, sound: 'glass', drop: null },
+        END_STONE: { id: 79, name: 'End Stone', nameJa: 'エンドストーン', solid: true, hardness: 3.0, tool: 'pickaxe', drop: 'end_stone', sound: 'stone' },
+        END_STONE_BRICKS: { id: 80, name: 'End Stone Bricks', nameJa: 'エンドストーンレンガ', solid: true, hardness: 3.0, tool: 'pickaxe', drop: 'end_stone_bricks', sound: 'stone' },
+        PURPUR_BLOCK: { id: 81, name: 'Purpur Block', nameJa: 'プルプァブロック', solid: true, hardness: 1.5, tool: 'pickaxe', drop: 'purpur_block', sound: 'stone' },
+        END_ROD: { id: 82, name: 'End Rod', nameJa: 'エンドロッド', solid: false, transparent: true, hardness: 0.0, drop: 'end_rod', light: 1.0, sound: 'wood' },
+        DRAGON_EGG: { id: 83, name: 'Dragon Egg', nameJa: 'ドラゴンの卵', solid: true, hardness: 3.0, drop: 'dragon_egg', sound: 'stone', isDragonEgg: true },
+        CRACKED_STONE_BRICKS: { id: 84, name: 'Cracked Stone Bricks', nameJa: 'ひび割れた石レンガ', solid: true, hardness: 1.5, tool: 'pickaxe', drop: 'cracked_stone_bricks', sound: 'stone' },
+        IRON_BARS: { id: 85, name: 'Iron Bars', nameJa: '鉄格子', solid: true, transparent: true, hardness: 5.0, tool: 'pickaxe', drop: 'iron_bars', sound: 'metal' }
     };
 
     // Mapping by block ID
@@ -113,6 +124,19 @@
         wool: { name: 'White Wool', nameJa: '白色の羊毛', category: 'materials', blockId: 59, maxStack: 64 },
         ender_pearl: { name: 'Ender Pearl', nameJa: 'エンダーパール', category: 'materials', maxStack: 16, desc: '右クリックで投げて着弾地点へ瞬間移動！' },
         echo_shard: { name: 'Echo Shard', nameJa: '残響の欠片', category: 'materials', maxStack: 64, desc: '古代都市のチェストに眠るディープダークの結晶' },
+        blaze_rod: { name: 'Blaze Rod', nameJa: 'ブレイズロッド', category: 'materials', fuelTime: 120, maxStack: 64, desc: 'ブレイズの炎の棒。クラフトでブレイズパウダーを作成' },
+        blaze_powder: { name: 'Blaze Powder', nameJa: 'ブレイズパウダー', category: 'materials', maxStack: 64, desc: 'エンダーパールと調合してエンダーアイを作成' },
+        eye_of_ender: { name: 'Eye of Ender', nameJa: 'エンダーアイ', category: 'tools', maxStack: 64, desc: '右クリックで投げて要塞を探索！エンドポータル枠に嵌めてエンドを開く！' },
+        dragon_breath: { name: 'Dragon Breath', nameJa: 'ドラゴンブレス', category: 'materials', maxStack: 64, desc: 'エンダードラゴンの紫の残留炎の息吹' },
+        elytra: { name: 'Elytra', nameJa: 'エリトラ(滑空翼)', category: 'tools', maxDurability: 432, desc: '空中でジャンプすると大空を滑空飛行できる伝説の翼！' },
+        dragon_egg: { name: 'Dragon Egg', nameJa: 'ドラゴンの卵', category: 'blocks', blockId: 83, maxStack: 64, desc: 'エンダードラゴン討伐の証。触れると瞬間移動する神秘の卵' },
+        end_stone: { name: 'End Stone', nameJa: 'エンドストーン', category: 'blocks', blockId: 79, maxStack: 64 },
+        end_stone_bricks: { name: 'End Stone Bricks', nameJa: 'エンドストーンレンガ', category: 'blocks', blockId: 80, maxStack: 64 },
+        purpur_block: { name: 'Purpur Block', nameJa: 'プルプァブロック', category: 'blocks', blockId: 81, maxStack: 64 },
+        end_rod: { name: 'End Rod', nameJa: 'エンドロッド', category: 'blocks', blockId: 82, maxStack: 64 },
+        end_portal_frame: { name: 'End Portal Frame', nameJa: 'エンドポータルフレーム', category: 'blocks', blockId: 77, maxStack: 64 },
+        cracked_stone_bricks: { name: 'Cracked Stone Bricks', nameJa: 'ひび割れた石レンガ', category: 'blocks', blockId: 84, maxStack: 64 },
+        iron_bars: { name: 'Iron Bars', nameJa: '鉄格子', category: 'blocks', blockId: 85, maxStack: 64 },
 
         // ★ 着火石・バケツ・実用ツール (Flint and Steel, Buckets, Shears, Bow, etc.)
         flint_and_steel: { name: 'Flint and Steel', nameJa: '火打石と打ち金(着火石)', category: 'tools', maxDurability: 64, desc: '右クリックでTNT着火・ブロックへの炎着火・ネザーポータル起動！' },
@@ -453,6 +477,19 @@
             'astral_ingot', 'astral_ingot', 'astral_ingot',
             'astral_ingot', 'astral_ingot', 'astral_ingot',
             'astral_ingot', 'astral_ingot', 'astral_ingot'
+        ]},
+        // ★ エンド関連レシピ (Blaze Powder, Eye of Ender, End Stone Bricks)
+        { output: { item: 'blaze_powder', count: 2 }, grid: 2, pattern: [
+            'blaze_rod', null,
+            null,        null
+        ]},
+        { output: { item: 'eye_of_ender', count: 1 }, grid: 2, pattern: [
+            'ender_pearl', 'blaze_powder',
+            null,          null
+        ]},
+        { output: { item: 'end_stone_bricks', count: 4 }, grid: 2, pattern: [
+            'end_stone', 'end_stone',
+            'end_stone', 'end_stone'
         ]}
     ];
 
