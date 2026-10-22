@@ -343,7 +343,7 @@
             this.handSwing = 0;
         }
 
-        // Raycast against voxel world (Hits solid & targetable blocks like torches, ladders, saplings, fire)
+        // Raycast against voxel world using 3D DDA (Amanatides & Woo Fast Voxel Traversal)
         raycast(maxDistance = 7.5, customDir = null) {
             const origin = new THREE.Vector3(this.x, this.y + this.eyeHeight, this.z);
             const dir = new THREE.Vector3();
@@ -353,48 +353,65 @@
                 this.camera.getWorldDirection(dir);
             }
 
-            const step = 0.04;
-            let current = origin.clone();
-            let prevBlock = {
-                x: Math.floor(origin.x),
-                y: Math.floor(origin.y),
-                z: Math.floor(origin.z)
-            };
+            let x = Math.floor(origin.x);
+            let y = Math.floor(origin.y);
+            let z = Math.floor(origin.z);
+
+            const stepX = dir.x > 0 ? 1 : (dir.x < 0 ? -1 : 0);
+            const stepY = dir.y > 0 ? 1 : (dir.y < 0 ? -1 : 0);
+            const stepZ = dir.z > 0 ? 1 : (dir.z < 0 ? -1 : 0);
+
+            const deltaX = dir.x !== 0 ? Math.abs(1 / dir.x) : Infinity;
+            const deltaY = dir.y !== 0 ? Math.abs(1 / dir.y) : Infinity;
+            const deltaZ = dir.z !== 0 ? Math.abs(1 / dir.z) : Infinity;
+
+            let maxX = dir.x > 0 ? ((x + 1 - origin.x) * deltaX) : ((origin.x - x) * deltaX);
+            let maxY = dir.y > 0 ? ((y + 1 - origin.y) * deltaY) : ((origin.y - y) * deltaY);
+            let maxZ = dir.z > 0 ? ((z + 1 - origin.z) * deltaZ) : ((origin.z - z) * deltaZ);
+
+            let normal = [0, 1, 0];
+            let distance = 0;
             const B = window.BLOCKS;
 
-            for (let d = 0.04; d < maxDistance; d += step) {
-                current.addScaledVector(dir, step);
-                const bx = Math.floor(current.x);
-                const by = Math.floor(current.y);
-                const bz = Math.floor(current.z);
-
-                const blockId = this.world.getBlock(bx, by, bz);
+            while (distance < maxDistance) {
+                const blockId = this.world.getBlock(x, y, z);
                 if (blockId !== B.AIR.id && blockId !== B.WATER.id && blockId !== B.LAVA.id) {
                     const blockDef = window.BLOCK_BY_ID[blockId];
                     if (blockDef) {
-                        let normal = [0, 1, 0];
-                        if (prevBlock && (prevBlock.x !== bx || prevBlock.y !== by || prevBlock.z !== bz)) {
-                            const dx = prevBlock.x - bx;
-                            const dy = prevBlock.y - by;
-                            const dz = prevBlock.z - bz;
-                            // Ensure cardinal face normal
-                            if (Math.abs(dx) >= Math.abs(dy) && Math.abs(dx) >= Math.abs(dz)) {
-                                normal = [Math.sign(dx) || 0, 0, 0];
-                            } else if (Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) >= Math.abs(dz)) {
-                                normal = [0, Math.sign(dy) || 1, 0];
-                            } else {
-                                normal = [0, 0, Math.sign(dz) || 0];
-                            }
-                        }
                         return {
-                            x: bx, y: by, z: bz,
+                            x: x, y: y, z: z,
                             blockId: blockId,
                             normal: normal,
-                            distance: d
+                            distance: distance
                         };
                     }
                 }
-                prevBlock = { x: bx, y: by, z: bz };
+
+                if (maxX < maxY) {
+                    if (maxX < maxZ) {
+                        x += stepX;
+                        distance = maxX;
+                        maxX += deltaX;
+                        normal = [-stepX, 0, 0];
+                    } else {
+                        z += stepZ;
+                        distance = maxZ;
+                        maxZ += deltaZ;
+                        normal = [0, 0, -stepZ];
+                    }
+                } else {
+                    if (maxY < maxZ) {
+                        y += stepY;
+                        distance = maxY;
+                        maxY += deltaY;
+                        normal = [0, -stepY, 0];
+                    } else {
+                        z += stepZ;
+                        distance = maxZ;
+                        maxZ += deltaZ;
+                        normal = [0, 0, -stepZ];
+                    }
+                }
             }
             return null;
         }
@@ -409,22 +426,54 @@
                 this.camera.getWorldDirection(dir);
             }
 
-            const step = 0.05;
-            let current = origin.clone();
+            let x = Math.floor(origin.x);
+            let y = Math.floor(origin.y);
+            let z = Math.floor(origin.z);
+
+            const stepX = dir.x > 0 ? 1 : (dir.x < 0 ? -1 : 0);
+            const stepY = dir.y > 0 ? 1 : (dir.y < 0 ? -1 : 0);
+            const stepZ = dir.z > 0 ? 1 : (dir.z < 0 ? -1 : 0);
+
+            const deltaX = dir.x !== 0 ? Math.abs(1 / dir.x) : Infinity;
+            const deltaY = dir.y !== 0 ? Math.abs(1 / dir.y) : Infinity;
+            const deltaZ = dir.z !== 0 ? Math.abs(1 / dir.z) : Infinity;
+
+            let maxX = dir.x > 0 ? ((x + 1 - origin.x) * deltaX) : ((origin.x - x) * deltaX);
+            let maxY = dir.y > 0 ? ((y + 1 - origin.y) * deltaY) : ((origin.y - y) * deltaY);
+            let maxZ = dir.z > 0 ? ((z + 1 - origin.z) * deltaZ) : ((origin.z - z) * deltaZ);
+
+            let distance = 0;
             const B = window.BLOCKS;
 
-            for (let d = 0.05; d < maxDistance; d += step) {
-                current.addScaledVector(dir, step);
-                const bx = Math.floor(current.x);
-                const by = Math.floor(current.y);
-                const bz = Math.floor(current.z);
-
-                const blockId = this.world.getBlock(bx, by, bz);
+            while (distance < maxDistance) {
+                const blockId = this.world.getBlock(x, y, z);
                 if (blockId === B.WATER.id || blockId === B.LAVA.id) {
-                    return { x: bx, y: by, z: bz, blockId: blockId, distance: d };
+                    return { x: x, y: y, z: z, blockId: blockId, distance: distance };
                 }
                 if (blockId !== B.AIR.id) {
                     break;
+                }
+
+                if (maxX < maxY) {
+                    if (maxX < maxZ) {
+                        x += stepX;
+                        distance = maxX;
+                        maxX += deltaX;
+                    } else {
+                        z += stepZ;
+                        distance = maxZ;
+                        maxZ += deltaZ;
+                    }
+                } else {
+                    if (maxY < maxZ) {
+                        y += stepY;
+                        distance = maxY;
+                        maxY += deltaY;
+                    } else {
+                        z += stepZ;
+                        distance = maxZ;
+                        maxZ += deltaZ;
+                    }
                 }
             }
             return null;

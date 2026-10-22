@@ -71,8 +71,25 @@
             this.health = Math.min(this.maxHealth, this.health + amount);
         }
 
+        setGameMode(mode) {
+            this.gameMode = mode;
+            if (mode !== 'creative') {
+                this.flying = false;
+                if (this.velocity.y > 0) this.velocity.y = 0;
+            }
+            this.fallDistance = 0;
+        }
+
         update(dt, input, hotbarItem) {
             if (this.isDead) return;
+
+            // ★ Absolute guarantee: Survival mode NEVER flies! Switching from Creative -> Survival immediately drops player to the ground.
+            if (this.gameMode !== 'creative') {
+                if (this.flying) {
+                    this.flying = false;
+                    if (this.velocity.y > 0) this.velocity.y = 0;
+                }
+            }
 
             // Check equipped items for custom perks
             const hasGravityBoots = (hotbarItem && hotbarItem.item === 'gravity_boots');
@@ -136,8 +153,9 @@
                 this.speedBoostTimer -= dt;
             }
 
-            // Dynamic Camera FOV (Widening FOV when sprinting, smooth lerp)
-            const targetFOV = isSprinting ? 86 : 75;
+            // Dynamic Camera FOV (Spyglass zoom or Widening FOV when sprinting, smooth lerp)
+            const isSpyglassZoom = (hotbarItem && hotbarItem.item === 'spyglass' && (input.mouseButtons[2] || this.isZooming));
+            const targetFOV = isSpyglassZoom ? 26 : (isSprinting ? 86 : 75);
             if (Math.abs(this.camera.fov - targetFOV) > 0.1) {
                 this.camera.fov += (targetFOV - this.camera.fov) * Math.min(1.0, dt * 10.0);
                 this.camera.updateProjectionMatrix();
@@ -178,11 +196,26 @@
                 this.velocity.z = 0;
             }
 
+            // Check if player is on a Ladder
+            const B = window.BLOCKS;
+            const blockAtFeet = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 0.1), Math.floor(this.z));
+            const blockAtWaist = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 1.0), Math.floor(this.z));
+            const onLadder = (B.LADDER && (blockAtFeet === B.LADDER.id || blockAtWaist === B.LADDER.id));
+
             // Vertical movement
-            if (this.flying) {
+            if (this.flying && this.gameMode === 'creative') {
                 if (input.keys['Space']) this.velocity.y = speed;
-                else if (input.keys['ShiftLeft']) this.velocity.y = -speed;
+                else if (input.keys['ShiftLeft'] || input.keys['ShiftRight']) this.velocity.y = -speed;
                 else this.velocity.y = 0;
+            } else if (onLadder) {
+                this.fallDistance = 0;
+                if (input.keys['Space'] || isForward) {
+                    this.velocity.y = 4.2;
+                } else if (input.keys['ShiftLeft'] || input.keys['ShiftRight']) {
+                    this.velocity.y = 0;
+                } else {
+                    this.velocity.y = -3.0;
+                }
             } else {
                 // Gravity & jumping
                 if (this.inWater) {
@@ -202,30 +235,29 @@
             // Apply physics
             this.physics.moveEntity(this, this.velocity, dt);
 
-            // ★ Surface Safety Anchor: Absolute guarantee against falling into void or underground clipping
-            const surfaceY = this.world.getHighestSolidY(Math.floor(this.x), Math.floor(this.z));
-            if (this.y < 2.0 || isNaN(this.y)) {
-                // Falling into void (Y < 2): instantly salvage to surface
+            // ★ Void Safety Anchor ONLY (Does NOT teleport player upward when under trees, roofs, or inside Underground Ancient City!)
+            if (this.y < 0.5 || isNaN(this.y)) {
+                const surfaceY = this.world.getHighestSolidY(Math.floor(this.x), Math.floor(this.z));
                 this.y = surfaceY + 1.8;
                 this.velocity.set(0, 0, 0);
                 this.fallDistance = 0;
                 this.onGround = true;
-            } else if (!this.flying && this.y < surfaceY - 1.2) {
-                // Check if accidentally clipped into underground solid terrain
-                const feetB = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 0.1), Math.floor(this.z));
-                const bodyB = this.world.getBlock(Math.floor(this.x), Math.floor(this.y + 0.9), Math.floor(this.z));
-                const defF = window.BLOCK_BY_ID[feetB];
-                const defB = window.BLOCK_BY_ID[bodyB];
-                if ((defF && defF.solid) || (defB && defB.solid)) {
-                    this.y = surfaceY + 1.8;
-                    this.velocity.set(0, 0, 0);
-                    this.fallDistance = 0;
-                    this.onGround = true;
-                }
             }
 
-            // Survival mechanics: Hunger & Oxygen
+            // Survival mechanics: Hunger, Oxygen, Fire & Lava
             if (this.gameMode === 'survival') {
+                // Fire & Lava burn damage
+                const inFire = (B.FIRE && (blockAtFeet === B.FIRE.id || blockAtWaist === B.FIRE.id));
+                if ((this.inLava || inFire) && !this.inWater) {
+                    this.burnTimer = (this.burnTimer || 0) + dt;
+                    if (this.burnTimer > 0.8) {
+                        this.takeDamage(this.inLava ? 3 : 1, 'fire');
+                        this.burnTimer = 0;
+                    }
+                } else {
+                    this.burnTimer = 0;
+                }
+
                 // Oxygen in water: ONLY consume when head is actually submerged under water!
                 if (this.headInWater) {
                     this.oxygen = Math.max(0, this.oxygen - dt * 1.0); // 15 seconds full breathing time
@@ -311,39 +343,138 @@
             this.handSwing = 0;
         }
 
-        // Raycast against voxel world
-        raycast(maxDistance = 5.5) {
+        // Raycast against voxel world using 3D DDA (Amanatides & Woo Fast Voxel Traversal)
+        raycast(maxDistance = 7.5, customDir = null) {
             const origin = new THREE.Vector3(this.x, this.y + this.eyeHeight, this.z);
             const dir = new THREE.Vector3();
-            this.camera.getWorldDirection(dir);
+            if (customDir) {
+                dir.copy(customDir).normalize();
+            } else {
+                this.camera.getWorldDirection(dir);
+            }
 
-            const step = 0.05;
-            let current = origin.clone();
-            let prevBlock = null;
+            let x = Math.floor(origin.x);
+            let y = Math.floor(origin.y);
+            let z = Math.floor(origin.z);
 
-            for (let d = 0; d < maxDistance; d += step) {
-                current.addScaledVector(dir, step);
-                const bx = Math.floor(current.x);
-                const by = Math.floor(current.y);
-                const bz = Math.floor(current.z);
+            const stepX = dir.x > 0 ? 1 : (dir.x < 0 ? -1 : 0);
+            const stepY = dir.y > 0 ? 1 : (dir.y < 0 ? -1 : 0);
+            const stepZ = dir.z > 0 ? 1 : (dir.z < 0 ? -1 : 0);
 
-                const blockId = this.world.getBlock(bx, by, bz);
-                const blockDef = window.BLOCK_BY_ID[blockId];
+            const deltaX = dir.x !== 0 ? Math.abs(1 / dir.x) : Infinity;
+            const deltaY = dir.y !== 0 ? Math.abs(1 / dir.y) : Infinity;
+            const deltaZ = dir.z !== 0 ? Math.abs(1 / dir.z) : Infinity;
 
-                if (blockDef && blockDef.solid) {
-                    // Determine normal from prev block
-                    let normal = [0, 1, 0];
-                    if (prevBlock) {
-                        normal = [prevBlock.x - bx, prevBlock.y - by, prevBlock.z - bz];
+            let maxX = dir.x > 0 ? ((x + 1 - origin.x) * deltaX) : ((origin.x - x) * deltaX);
+            let maxY = dir.y > 0 ? ((y + 1 - origin.y) * deltaY) : ((origin.y - y) * deltaY);
+            let maxZ = dir.z > 0 ? ((z + 1 - origin.z) * deltaZ) : ((origin.z - z) * deltaZ);
+
+            let normal = [0, 1, 0];
+            let distance = 0;
+            const B = window.BLOCKS;
+
+            while (distance < maxDistance) {
+                const blockId = this.world.getBlock(x, y, z);
+                if (blockId !== B.AIR.id && blockId !== B.WATER.id && blockId !== B.LAVA.id) {
+                    const blockDef = window.BLOCK_BY_ID[blockId];
+                    if (blockDef) {
+                        return {
+                            x: x, y: y, z: z,
+                            blockId: blockId,
+                            normal: normal,
+                            distance: distance
+                        };
                     }
-                    return {
-                        x: bx, y: by, z: bz,
-                        blockId: blockId,
-                        normal: normal,
-                        distance: d
-                    };
                 }
-                prevBlock = { x: bx, y: by, z: bz };
+
+                if (maxX < maxY) {
+                    if (maxX < maxZ) {
+                        x += stepX;
+                        distance = maxX;
+                        maxX += deltaX;
+                        normal = [-stepX, 0, 0];
+                    } else {
+                        z += stepZ;
+                        distance = maxZ;
+                        maxZ += deltaZ;
+                        normal = [0, 0, -stepZ];
+                    }
+                } else {
+                    if (maxY < maxZ) {
+                        y += stepY;
+                        distance = maxY;
+                        maxY += deltaY;
+                        normal = [0, -stepY, 0];
+                    } else {
+                        z += stepZ;
+                        distance = maxZ;
+                        maxZ += deltaZ;
+                        normal = [0, 0, -stepZ];
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Raycast specifically including Water and Lava (for Bucket scooping)
+        raycastFluid(maxDistance = 7.5, customDir = null) {
+            const origin = new THREE.Vector3(this.x, this.y + this.eyeHeight, this.z);
+            const dir = new THREE.Vector3();
+            if (customDir) {
+                dir.copy(customDir).normalize();
+            } else {
+                this.camera.getWorldDirection(dir);
+            }
+
+            let x = Math.floor(origin.x);
+            let y = Math.floor(origin.y);
+            let z = Math.floor(origin.z);
+
+            const stepX = dir.x > 0 ? 1 : (dir.x < 0 ? -1 : 0);
+            const stepY = dir.y > 0 ? 1 : (dir.y < 0 ? -1 : 0);
+            const stepZ = dir.z > 0 ? 1 : (dir.z < 0 ? -1 : 0);
+
+            const deltaX = dir.x !== 0 ? Math.abs(1 / dir.x) : Infinity;
+            const deltaY = dir.y !== 0 ? Math.abs(1 / dir.y) : Infinity;
+            const deltaZ = dir.z !== 0 ? Math.abs(1 / dir.z) : Infinity;
+
+            let maxX = dir.x > 0 ? ((x + 1 - origin.x) * deltaX) : ((origin.x - x) * deltaX);
+            let maxY = dir.y > 0 ? ((y + 1 - origin.y) * deltaY) : ((origin.y - y) * deltaY);
+            let maxZ = dir.z > 0 ? ((z + 1 - origin.z) * deltaZ) : ((origin.z - z) * deltaZ);
+
+            let distance = 0;
+            const B = window.BLOCKS;
+
+            while (distance < maxDistance) {
+                const blockId = this.world.getBlock(x, y, z);
+                if (blockId === B.WATER.id || blockId === B.LAVA.id) {
+                    return { x: x, y: y, z: z, blockId: blockId, distance: distance };
+                }
+                if (blockId !== B.AIR.id) {
+                    break;
+                }
+
+                if (maxX < maxY) {
+                    if (maxX < maxZ) {
+                        x += stepX;
+                        distance = maxX;
+                        maxX += deltaX;
+                    } else {
+                        z += stepZ;
+                        distance = maxZ;
+                        maxZ += deltaZ;
+                    }
+                } else {
+                    if (maxY < maxZ) {
+                        y += stepY;
+                        distance = maxY;
+                        maxY += deltaY;
+                    } else {
+                        z += stepZ;
+                        distance = maxZ;
+                        maxZ += deltaZ;
+                    }
+                }
             }
             return null;
         }

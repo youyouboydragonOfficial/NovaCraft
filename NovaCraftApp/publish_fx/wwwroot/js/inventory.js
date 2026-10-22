@@ -100,7 +100,16 @@
             if (!item) return;
             item.count -= amount;
             if (item.count <= 0) {
+                const itemKey = item.item;
                 this.slots[this.selectedHotbarIndex] = null;
+                // Auto-refill hotbar slot from inventory if more of same item exists!
+                for (let i = 9; i < 36; i++) {
+                    if (this.slots[i] && this.slots[i].item === itemKey) {
+                        this.slots[this.selectedHotbarIndex] = this.slots[i];
+                        this.slots[i] = null;
+                        break;
+                    }
+                }
             }
         }
 

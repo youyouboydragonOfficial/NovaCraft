@@ -463,7 +463,7 @@
                 }
             });
 
-            // Mouse Click (Left Click & Right Click: Block Placement, Flint & Steel Ignition, Mining & Combat)
+            // Mouse Click (Left Click: Instant Break in Creative / Mining & Attack in Survival | Right Click: Place Block / Use Item)
             window.addEventListener('mousedown', (e) => {
                 if (this.inventory.openMode !== 'none' || !this.gameStarted) return;
                 if (!this.isPointerLocked && e.target !== this.renderer.domElement) return;
@@ -486,30 +486,9 @@
                     this.lastClickTime = now;
 
                     this.player.swingHand();
-
-                    // ★ 左クリック: モブがいればモブを殴り、モブがいなければブロック設置・着火石使用・TNT起爆！
-                    const heldItem = this.inventory.getSelectedItem();
-                    const itemKey = heldItem ? heldItem.item : null;
-                    const itemDef = itemKey ? window.ITEMS[itemKey] : null;
-                    const isShiftBreak = !!(this.input.keys['ShiftLeft'] || this.input.keys['ShiftRight']);
-                    const isMiningTool = Boolean(itemDef && (itemDef.toolType === 'pickaxe' || itemDef.toolType === 'axe' || itemDef.toolType === 'shovel'));
-
-                    const dir = customDir || (() => { const d = new THREE.Vector3(); this.camera.getWorldDirection(d); return d; })();
-                    const origin = new THREE.Vector3(this.player.x, this.player.y + this.player.eyeHeight, this.player.z);
-                    const hitMob = this.mobManager.checkMobHit(origin.clone().addScaledVector(dir, 2.0), 1.5);
-
-                    if (hitMob && itemKey !== 'shears') {
-                        // モブが目の前にいる時は左クリックでモブを殴る！
-                        this.handleLeftClick(customDir);
-                    } else if (isShiftBreak || isMiningTool) {
-                        // Shift+左クリック または ツルハシ等の採掘ツール所持時はブロック破壊
-                        this.handleLeftClick(customDir);
-                    } else {
-                        // モブがいない時は左クリックでブロック設置・着火石点火・アイテム使用！
-                        this.handleRightClick(customDir);
-                    }
+                    this.handleLeftClick(customDir);
                 } else if (e.button === 2) {
-                    // Right click: Interact / Place block / Custom ability
+                    this.player.swingHand();
                     this.handleRightClick(customDir);
                 }
             });
@@ -518,6 +497,8 @@
                 this.input.mouseButtons[e.button] = false;
                 if (e.button === 0) {
                     this.player.miningProgress = 0;
+                    this.miningTarget = null;
+                    if (this.crackBox) this.crackBox.visible = false;
                 }
             });
         }
@@ -550,13 +531,33 @@
         }
 
         handleLeftClick(customDir = null) {
-            // Check mob hit
-            const ray = this.player.raycast(6.5, customDir);
             const cameraDir = customDir ? customDir.clone().normalize() : new THREE.Vector3();
             if (!customDir) this.camera.getWorldDirection(cameraDir);
             const origin = new THREE.Vector3(this.player.x, this.player.y + this.player.eyeHeight, this.player.z);
 
-            const hitMob = this.mobManager.checkMobHit(origin.clone().addScaledVector(cameraDir, 2.0), 1.5);
+            const ray = this.player.raycast(6.5, customDir);
+
+            // Melee mob check along look vector
+            let hitMob = null;
+            let closestMobDist = Infinity;
+            const maxReach = 3.6;
+            for (let step = 1.0; step <= maxReach; step += 0.8) {
+                const checkPos = origin.clone().addScaledVector(cameraDir, step);
+                const mob = this.mobManager.checkMobHit(checkPos, 1.3);
+                if (mob) {
+                    const d = Math.hypot(mob.x - origin.x, mob.y - origin.y, mob.z - origin.z);
+                    if (d < closestMobDist) {
+                        closestMobDist = d;
+                        hitMob = mob;
+                    }
+                }
+            }
+
+            // Block occlusion: if a block is closer than mob, attack is absorbed by block
+            if (hitMob && ray && ray.distance < closestMobDist - 0.4) {
+                hitMob = null;
+            }
+
             if (hitMob) {
                 const heldItem = this.inventory.getSelectedItem();
                 const itemDef = window.ITEMS[heldItem?.item];
@@ -572,8 +573,10 @@
                 const def = window.BLOCK_BY_ID[bId];
                 const B = window.BLOCKS;
 
-                // Instant break in Creative OR for 0-hardness blocks (Fire, Torch, Flowers, Sapling, TNT punch if creative)
-                if (this.player.gameMode === 'creative' || (def && def.hardness === 0.0)) {
+                if (!def || def.hardness === Infinity) return; // Bedrock is unbreakable
+
+                // Instant break in Creative OR for 0-hardness blocks (Fire, Torch, Flowers, Sapling, TNT in creative)
+                if (this.player.gameMode === 'creative' || def.hardness === 0.0) {
                     this.world.setBlock(ray.x, ray.y, ray.z, B.AIR.id);
                     if (B.FIRE && bId === B.FIRE.id) {
                         this.sound.playFuse();
@@ -586,6 +589,10 @@
                         }
                     }
                     this.world.applyGravityAbove(ray.x, ray.y, ray.z);
+                } else {
+                    if (def && def.sound) {
+                        this.sound.playDig(def.sound);
+                    }
                 }
             }
         }
@@ -916,95 +923,73 @@
                     } else if (bId === B.WAYGATE.id) {
                         this.teleportToNextWaygate(ray.x, ray.y, ray.z);
                         return;
-                    } else if (bId === B.TNT.id || bId === B.CLUSTER_TNT.id) {
-                        // Clicking on a placed TNT block (with Flint & Steel, TNT, sword, or bare hand) immediately ignites it!
-                        if (this.sound.playFlintAndSteel) this.sound.playFlintAndSteel();
-                        this.itemManager.igniteTnt(ray.x, ray.y, ray.z, bId === B.CLUSTER_TNT.id);
-                        this.player.swingHand();
-                        this.ui.addChatMessage('💥 TNTに着火しました！爆発に注意！', '#ff5555');
+                    }
+                }
+
+                // ★ 13. Place Block in World
+                const placeItemDef = (itemDef && itemDef.blockId) ? itemDef : null;
+                if (placeItemDef && placeItemDef.blockId) {
+                    const clickedDef = window.BLOCK_BY_ID[bId];
+                    const isReplaceable = (clickedDef && (bId === B.FIRE?.id || (clickedDef.hardness === 0.0 && !clickedDef.solid)));
+                    const px = isReplaceable ? ray.x : (ray.x + ray.normal[0]);
+                    const py = isReplaceable ? ray.y : (ray.y + ray.normal[1]);
+                    const pz = isReplaceable ? ray.z : (ray.z + ray.normal[2]);
+
+                    // Verify world bounds
+                    if (px < 0 || px >= this.world.sizeX || py < 0 || py >= this.world.sizeY || pz < 0 || pz >= this.world.sizeZ) {
                         return;
                     }
-                }
 
-                // ★ 13. Place Block in World (If holding a sword/empty hand when no mob is present, fallback to first block in hotbar!)
-                let placeItemDef = (itemDef && itemDef.blockId) ? itemDef : null;
-                let placeSlotIdx = this.inventory.selectedHotbarIndex;
-                if (!placeItemDef) {
-                    for (let i = 0; i < 36; i++) {
-                        const s = this.inventory.slots[i];
-                        const sDef = s ? window.ITEMS[s.item] : null;
-                        if (sDef && sDef.blockId) {
-                            placeItemDef = sDef;
-                            placeSlotIdx = i;
-                            break;
-                        }
+                    // Existing block check (allow placing into AIR, WATER, LAVA, or FIRE)
+                    const curTargetId = this.world.getBlock(px, py, pz);
+                    const curTargetDef = window.BLOCK_BY_ID[curTargetId];
+                    if (curTargetId !== B.AIR.id && curTargetId !== B.WATER.id && curTargetId !== B.LAVA.id && curTargetId !== B.FIRE?.id && !isReplaceable) {
+                        return;
                     }
-                    if (!placeItemDef) {
-                        placeItemDef = window.ITEMS['grass'];
-                    }
-                }
-
-                if (placeItemDef && placeItemDef.blockId) {
-                    const replaceInPlace = (B.FIRE && bId === B.FIRE.id);
-                    const px = replaceInPlace ? ray.x : (ray.x + ray.normal[0]);
-                    const py = replaceInPlace ? ray.y : (ray.y + ray.normal[1]);
-                    const pz = replaceInPlace ? ray.z : (ray.z + ray.normal[2]);
 
                     const targetBlockDef = window.BLOCK_BY_ID[placeItemDef.blockId];
                     const placeBox = new AABB(px, py, pz, px + 1, py + 1, pz + 1);
+
+                    const pRadius = 0.20;
                     const playerBox = new AABB(
-                        this.player.x - 0.22, this.player.y + 0.08, this.player.z - 0.22,
-                        this.player.x + 0.22, this.player.y + 1.70, this.player.z + 0.22
+                        this.player.x - pRadius, this.player.y, this.player.z - pRadius,
+                        this.player.x + pRadius, this.player.y + 1.75, this.player.z + pRadius
                     );
 
-                    // If placing a block right at the player's feet/lower body, step the player up smoothly so the block always places!
-                    if (placeBox.intersects(playerBox) && targetBlockDef?.solid && py <= Math.floor(this.player.y + 0.9)) {
-                        this.player.y = py + 1.01;
-                        this.player.velocity.y = Math.max(0, this.player.velocity.y);
-                    }
-
-                    const updatedPlayerBox = new AABB(
-                        this.player.x - 0.22, this.player.y + 0.08, this.player.z - 0.22,
-                        this.player.x + 0.22, this.player.y + 1.70, this.player.z + 0.22
-                    );
-
-                    if (!placeBox.intersects(updatedPlayerBox) || !targetBlockDef?.solid) {
-                        this.world.setBlock(px, py, pz, placeItemDef.blockId);
-                        this.sound.playPlace();
-                        this.player.swingHand();
-                        if (this.player.gameMode !== 'creative' && this.inventory.slots[placeSlotIdx]) {
-                            this.inventory.slots[placeSlotIdx].count--;
-                            if (this.inventory.slots[placeSlotIdx].count <= 0) {
-                                this.inventory.slots[placeSlotIdx] = null;
+                    const isUnderFeet = (px === Math.floor(this.player.x) && pz === Math.floor(this.player.z) && py <= Math.floor(this.player.y + 0.95));
+                    if (targetBlockDef?.solid && placeBox.intersects(playerBox)) {
+                        if (isUnderFeet) {
+                            // Smoothly boost player up on top of newly placed block (towering up)
+                            this.player.y = py + 1.01;
+                            this.player.velocity.y = Math.max(0, this.player.velocity.y);
+                        } else {
+                            // Grazing edge nudge if close to boundary
+                            const overlapX = Math.min(placeBox.maxX, playerBox.maxX) - Math.max(placeBox.minX, playerBox.minX);
+                            const overlapZ = Math.min(placeBox.maxZ, playerBox.maxZ) - Math.max(placeBox.minZ, playerBox.minZ);
+                            if (overlapX < 0.12 && overlapZ > 0) {
+                                this.player.x += (this.player.x < px + 0.5 ? -overlapX : overlapX);
+                            } else if (overlapZ < 0.12 && overlapX > 0) {
+                                this.player.z += (this.player.z < pz + 0.5 ? -overlapZ : overlapZ);
+                            } else {
+                                return; // Obstructed by player body
                             }
                         }
-                        if (placeItemDef.blockId === B.TNT.id || placeItemDef.blockId === B.CLUSTER_TNT.id) {
-                            this.ui.addChatMessage('💣 TNTを設置しました！（もう一度TNTを左クリック、または[🔥着火石]・[💥起爆ボタン]で爆発します！）', '#ffaa44');
-                        }
-                        // If Sand or Gravel placed in mid-air, apply gravity
-                        if (placeItemDef.blockId === B.SAND.id || placeItemDef.blockId === B.GRAVEL.id) {
-                            this.world.applyGravityAbove(px, py - 1, pz);
-                        }
                     }
-                }
-            } else {
-                // Fallback placement when aiming into open space / sky (places block 3.5m in front of cursor/crosshair)
-                let placeItemDef = (itemDef && itemDef.blockId) ? itemDef : window.ITEMS['grass'];
-                if (placeItemDef && placeItemDef.blockId) {
-                    const px = Math.floor(eyeOrigin.x + dir.x * 3.5);
-                    const py = Math.max(1, Math.min(62, Math.floor(eyeOrigin.y + dir.y * 3.5)));
-                    const pz = Math.floor(eyeOrigin.z + dir.z * 3.5);
-                    if (this.world.getBlock(px, py, pz) === B.AIR.id) {
-                        this.world.setBlock(px, py, pz, placeItemDef.blockId);
-                        this.sound.playPlace();
-                        this.player.swingHand();
-                        if (this.player.gameMode !== 'creative') {
-                            this.inventory.consumeSelectedItem(1);
-                        }
-                        if (placeItemDef.blockId === B.SAND.id || placeItemDef.blockId === B.GRAVEL.id) {
-                            this.world.applyGravityAbove(px, py - 1, pz);
-                        }
+
+                    this.world.setBlock(px, py, pz, placeItemDef.blockId);
+                    this.sound.playPlace();
+                    this.player.swingHand();
+
+                    if (this.player.gameMode !== 'creative') {
+                        this.inventory.consumeSelectedItem(1);
                     }
+                    if (placeItemDef.blockId === B.TNT.id || placeItemDef.blockId === B.CLUSTER_TNT.id) {
+                        this.ui.addChatMessage('💣 TNTを設置しました！（[🔥着火石]で右クリック、または[💥起爆ボタン]で爆発します！）', '#ffaa44');
+                    }
+                    if (placeItemDef.blockId === B.SAND.id || placeItemDef.blockId === B.GRAVEL.id) {
+                        this.world.applyGravityAbove(px, py - 1, pz);
+                    }
+                    return;
                 }
             }
         }
@@ -1072,74 +1057,131 @@
 
         handleMiningTick(dt) {
             if (this.player.gameMode === 'creative') {
-                this.crackBox.visible = false;
+                if (this.crackBox) this.crackBox.visible = false;
+                this.miningTarget = null;
+                this.player.miningProgress = 0;
                 return;
             }
 
             if (this.input.mouseButtons[0]) {
-                const heldItem = this.inventory.getSelectedItem();
-                const itemDef = window.ITEMS[heldItem?.item];
-                const isShiftBreak = !!(this.input.keys['ShiftLeft'] || this.input.keys['ShiftRight']);
-                if (itemDef && (itemDef.blockId || heldItem?.item === 'flint_and_steel') && !isShiftBreak) {
-                    this.player.miningProgress = 0;
-                    this.crackBox.visible = false;
-                    return;
-                }
                 if (!this.player.isSwinging) {
                     this.player.swingHand();
                 }
+
                 const ray = this.player.raycast(6.5);
-                if (ray) {
-                    const bId = ray.blockId;
-                    const def = window.BLOCK_BY_ID[bId];
-                    if (def && def.hardness !== Infinity) {
-                        const heldItem = this.inventory.getSelectedItem();
-                        const toolDef = window.ITEMS[heldItem?.item];
+                if (!ray) {
+                    this.player.miningProgress = 0;
+                    this.miningTarget = null;
+                    if (this.crackBox) this.crackBox.visible = false;
+                    return;
+                }
 
-                        let speed = 1.0;
-                        if (toolDef && toolDef.toolType === def.tool) {
-                            speed = toolDef.speed || 2.0;
-                        }
+                // If target block changed, reset progress to 0!
+                if (!this.miningTarget || this.miningTarget.x !== ray.x || this.miningTarget.y !== ray.y || this.miningTarget.z !== ray.z) {
+                    this.miningTarget = { x: ray.x, y: ray.y, z: ray.z };
+                    this.player.miningProgress = 0;
+                }
 
-                        this.player.miningProgress += (dt * speed) / Math.max(0.15, def.hardness || 1.0);
+                const bId = ray.blockId;
+                const def = window.BLOCK_BY_ID[bId];
+                if (!def || def.hardness === Infinity) {
+                    this.player.miningProgress = 0;
+                    if (this.crackBox) this.crackBox.visible = false;
+                    return;
+                }
 
-                        // Update Crack Overlay Box (0 to 9 stages)
-                        const stage = Math.min(9, Math.floor(this.player.miningProgress * 10));
-                        this.crackBox.visible = true;
-                        this.crackBox.position.set(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5);
-                        this.atlas.applyCrackUVs(this.crackBox.geometry, stage);
+                // Blocks with hardness 0 break instantly
+                if (def.hardness === 0.0) {
+                    this.world.setBlock(ray.x, ray.y, ray.z, window.BLOCKS.AIR.id);
+                    this.sound.playBreak(def.sound || 'stone');
+                    if (def.drop) this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, def.drop);
+                    this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0xaaaaaa, 6);
+                    this.world.applyGravityAbove(ray.x, ray.y, ray.z);
+                    this.player.miningProgress = 0;
+                    this.miningTarget = null;
+                    if (this.crackBox) this.crackBox.visible = false;
+                    return;
+                }
 
-                        // Digging sound & particles
-                        this.player.breakSoundTimer = (this.player.breakSoundTimer || 0) + dt;
-                        if (this.player.breakSoundTimer > 0.22) {
-                            this.sound.playDig(def.sound || 'stone');
-                            this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0x888888, 2);
-                            this.player.breakSoundTimer = 0;
-                        }
+                const heldItem = this.inventory.getSelectedItem();
+                const toolDef = heldItem ? window.ITEMS[heldItem.item] : null;
 
-                        if (this.player.miningProgress >= 1.0) {
-                            // Break block!
-                            this.world.setBlock(ray.x, ray.y, ray.z, window.BLOCKS.AIR.id);
-                            this.sound.playBreak(def.sound || 'stone');
-                            this.player.miningProgress = 0;
-                            this.crackBox.visible = false;
+                const isCorrectTool = Boolean(toolDef && toolDef.toolType && toolDef.toolType === def.tool);
 
-                            // Drop item (Gravel has 35% chance to drop Flint for crafting Flint & Steel!)
-                            if (bId === window.BLOCKS.GRAVEL.id && Math.random() < 0.35) {
-                                this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 'flint');
-                            } else if (def.drop) {
-                                this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, def.drop);
-                            }
-                            this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0x888888, 8);
-                            // Safe Sand/Gravel gravity physics
-                            this.world.applyGravityAbove(ray.x, ray.y, ray.z);
-                        }
-                        return;
+                // Authentic Minecraft break time calculation:
+                // Base break time = hardness * 1.5 seconds.
+                // If using correct tool: breakTime = (hardness * 1.5) / toolSpeed.
+                // If using wrong tool on pickaxe-required blocks (stone, ores, obsidian): breakTime = hardness * 5.0 seconds.
+                let breakTime;
+                if (isCorrectTool) {
+                    const speed = toolDef.speed || 2.0;
+                    breakTime = (def.hardness * 1.5) / speed;
+                } else {
+                    if (def.tool === 'pickaxe') {
+                        breakTime = def.hardness * 5.0;
+                    } else {
+                        breakTime = def.hardness * 1.5;
                     }
                 }
+                breakTime = Math.max(0.06, breakTime);
+
+                this.player.miningProgress += dt / breakTime;
+
+                // Crack Overlay Box (0 to 9 stages)
+                const stage = Math.min(9, Math.floor(this.player.miningProgress * 10));
+                this.crackBox.visible = true;
+                this.crackBox.position.set(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5);
+                this.atlas.applyCrackUVs(this.crackBox.geometry, stage);
+
+                // Dig sound and particles during mining
+                this.player.breakSoundTimer = (this.player.breakSoundTimer || 0) + dt;
+                if (this.player.breakSoundTimer > 0.22) {
+                    this.sound.playDig(def.sound || 'stone');
+                    this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0x888888, 2);
+                    this.player.breakSoundTimer = 0;
+                }
+
+                // Completed mining!
+                if (this.player.miningProgress >= 1.0) {
+                    this.world.setBlock(ray.x, ray.y, ray.z, window.BLOCKS.AIR.id);
+                    this.sound.playBreak(def.sound || 'stone');
+                    this.player.miningProgress = 0;
+                    this.miningTarget = null;
+                    if (this.crackBox) this.crackBox.visible = false;
+
+                    // Drops: pickaxe blocks only drop if mined with a pickaxe
+                    let canDrop = true;
+                    if (def.tool === 'pickaxe' && (!toolDef || toolDef.toolType !== 'pickaxe')) {
+                        canDrop = false;
+                    }
+
+                    if (canDrop) {
+                        if (bId === window.BLOCKS.GRAVEL.id && Math.random() < 0.35) {
+                            this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 'flint');
+                        } else if (def.drop) {
+                            this.itemManager.spawnDroppedItem(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, def.drop);
+                        }
+                    }
+
+                    this.itemManager.spawnBlockParticles(ray.x + 0.5, ray.y + 0.5, ray.z + 0.5, 0x888888, 8);
+                    this.world.applyGravityAbove(ray.x, ray.y, ray.z);
+
+                    // Durability consumption for tools
+                    if (heldItem && toolDef && toolDef.maxDurability) {
+                        heldItem.durability = (heldItem.durability !== undefined ? heldItem.durability : toolDef.maxDurability) - 1;
+                        if (heldItem.durability <= 0) {
+                            this.inventory.slots[this.inventory.selectedHotbarIndex] = null;
+                            this.sound.playBreak('stone');
+                            this.ui.addChatMessage(`💥 ${toolDef.nameJa || toolDef.name}が壊れてしまいました！`, '#ff6666');
+                        }
+                        this.ui.renderHUD();
+                    }
+                }
+            } else {
+                this.player.miningProgress = 0;
+                this.miningTarget = null;
+                if (this.crackBox) this.crackBox.visible = false;
             }
-            this.player.miningProgress = 0;
-            this.crackBox.visible = false;
         }
 
         // UI Slot Interactions

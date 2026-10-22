@@ -35,9 +35,34 @@
         }
 
         initDefaultItems() {
-            // Authentic Vanilla Minecraft Survival starts with an empty inventory!
-            // Player begins with bare hands and gathers resources by punching trees.
             this.slots = new Array(36).fill(null);
+            this.slots[0] = { item: 'grass', count: 64 };
+            this.slots[1] = { item: 'cobblestone', count: 64 };
+            this.slots[2] = { item: 'oak_planks', count: 64 };
+            this.slots[3] = { item: 'tnt', count: 64 };
+            this.slots[4] = { item: 'flint_and_steel', count: 1 };
+            this.slots[5] = { item: 'obsidian', count: 64 };
+            this.slots[6] = { item: 'water_bucket', count: 1 };
+            this.slots[7] = { item: 'diamond_sword', count: 1 };
+            this.slots[8] = { item: 'bow', count: 1 };
+
+            // Populate Chest loot (found in Ancient City shrines & Village houses!)
+            this.chestSlots = new Array(27).fill(null);
+            this.chestSlots[0] = { item: 'echo_shard', count: 5 };
+            this.chestSlots[1] = { item: 'flint_and_steel', count: 1 };
+            this.chestSlots[2] = { item: 'golden_apple', count: 3 };
+            this.chestSlots[3] = { item: 'tnt', count: 16 };
+            this.chestSlots[4] = { item: 'diamond_sword', count: 1 };
+            this.chestSlots[5] = { item: 'bow', count: 1 };
+            this.chestSlots[6] = { item: 'diamond_pickaxe', count: 1 };
+            this.chestSlots[7] = { item: 'arrow', count: 32 };
+            this.chestSlots[8] = { item: 'soul_lantern', count: 16 };
+            this.chestSlots[9] = { item: 'ender_pearl', count: 8 };
+            this.chestSlots[10] = { item: 'water_bucket', count: 1 };
+            this.chestSlots[11] = { item: 'netherite_sword', count: 1 };
+            this.chestSlots[12] = { item: 'diamond', count: 8 };
+            this.chestSlots[13] = { item: 'astral_blade', count: 1 };
+            this.chestSlots[14] = { item: 'bread', count: 12 };
         }
 
         getSelectedItem() {
@@ -75,52 +100,97 @@
             if (!item) return;
             item.count -= amount;
             if (item.count <= 0) {
+                const itemKey = item.item;
                 this.slots[this.selectedHotbarIndex] = null;
+                // Auto-refill hotbar slot from inventory if more of same item exists!
+                for (let i = 9; i < 36; i++) {
+                    if (this.slots[i] && this.slots[i].item === itemKey) {
+                        this.slots[this.selectedHotbarIndex] = this.slots[i];
+                        this.slots[i] = null;
+                        break;
+                    }
+                }
             }
         }
 
-        // Check Crafting Recipes
+        // Check Crafting Recipes (Supports 1..N shapeless recipes, 2x2 in 3x3, and 3x3 patterns)
         updateCraftResult(is3x3 = false) {
             const grid = is3x3 ? this.craft3x3 : this.craft2x2;
-            const size = is3x3 ? 3 : 2;
             this.craftResult = null;
+
+            // Collect non-empty items currently in grid
+            const presentItems = [];
+            for (let g = 0; g < grid.length; g++) {
+                if (grid[g] && grid[g].item) {
+                    presentItems.push(grid[g].item);
+                }
+            }
+            if (presentItems.length === 0) return;
 
             const recipes = window.RECIPES;
             for (let r = 0; r < recipes.length; r++) {
                 const recipe = recipes[r];
                 if (recipe.grid === 3 && !is3x3) continue;
 
-                // Shapeless single ingredient match (e.g. log -> 4 planks)
-                if (recipe.ingredients && recipe.ingredients.length === 1) {
-                    let matchCount = 0;
-                    let extraItem = false;
-                    for (let g = 0; g < grid.length; g++) {
-                        if (grid[g]) {
-                            if (grid[g].item === recipe.ingredients[0]) matchCount++;
-                            else extraItem = true;
+                // 1. Shapeless ingredient match (1, 2, or more ingredients anywhere in grid!)
+                if (recipe.ingredients && recipe.ingredients.length >= 1) {
+                    if (presentItems.length === recipe.ingredients.length) {
+                        const sortedPresent = presentItems.slice().sort();
+                        const sortedReq = recipe.ingredients.slice().sort();
+                        let allMatch = true;
+                        for (let i = 0; i < sortedReq.length; i++) {
+                            if (sortedPresent[i] !== sortedReq[i]) {
+                                allMatch = false;
+                                break;
+                            }
                         }
-                    }
-                    if (matchCount === 1 && !extraItem) {
-                        this.craftResult = { item: recipe.output.item, count: recipe.output.count };
-                        return;
+                        if (allMatch) {
+                            this.craftResult = { item: recipe.output.item, count: recipe.output.count };
+                            return;
+                        }
                     }
                 }
 
-                // Pattern match
+                // 2. Pattern match
                 if (recipe.pattern) {
-                    let matches = true;
                     const pat = recipe.pattern;
-                    for (let p = 0; p < pat.length; p++) {
-                        const required = pat[p];
-                        const current = grid[p] ? grid[p].item : null;
-                        if (required !== current) {
-                            matches = false;
-                            break;
+                    if (pat.length === grid.length) {
+                        let matches = true;
+                        for (let p = 0; p < pat.length; p++) {
+                            const required = pat[p];
+                            const current = grid[p] ? grid[p].item : null;
+                            if (required !== current) {
+                                matches = false;
+                                break;
+                            }
                         }
-                    }
-                    if (matches) {
-                        this.craftResult = { item: recipe.output.item, count: recipe.output.count };
-                        return;
+                        if (matches) {
+                            this.craftResult = { item: recipe.output.item, count: recipe.output.count };
+                            return;
+                        }
+                    } else if (pat.length === 4 && grid.length === 9) {
+                        // Allow 2x2 pattern recipes inside any 2x2 sub-grid of the 3x3 Crafting Table!
+                        for (let rowOff = 0; rowOff <= 1; rowOff++) {
+                            for (let colOff = 0; colOff <= 1; colOff++) {
+                                let matches = true;
+                                for (let rIdx = 0; rIdx < 3; rIdx++) {
+                                    for (let cIdx = 0; cIdx < 3; cIdx++) {
+                                        const gItem = grid[rIdx * 3 + cIdx] ? grid[rIdx * 3 + cIdx].item : null;
+                                        const inSub = (rIdx >= rowOff && rIdx < rowOff + 2 && cIdx >= colOff && cIdx < colOff + 2);
+                                        const req = inSub ? pat[(rIdx - rowOff) * 2 + (cIdx - colOff)] : null;
+                                        if (gItem !== req) {
+                                            matches = false;
+                                            break;
+                                        }
+                                    }
+                                    if (!matches) break;
+                                }
+                                if (matches) {
+                                    this.craftResult = { item: recipe.output.item, count: recipe.output.count };
+                                    return;
+                                }
+                            }
+                        }
                     }
                 }
             }
