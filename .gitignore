@@ -3,4 +3,6 @@ obj/
 .vs/
 *.user
 publish/
+publish_installer/
 *.zip
+NovaCraft-Setup.exe

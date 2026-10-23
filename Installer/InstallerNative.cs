@@ -15,7 +15,8 @@ namespace NovaCraftInstaller
         private Button startButton;
         private string appName = "NovaCraft";
         private string installDir;
-        private string releaseZipUrl = "https://github.com/youyouboydragonOfficial/NovaCraft/releases/download/v2.0.0/NovaCraft-Windows-v2.0.0.zip";
+        private string releaseZipUrl = "https://github.com/youyouboydragonOfficial/NovaCraft/releases/download/v2.2.0/NovaCraft-Windows-v2.2.0.zip";
+        private bool isSilent = false;
 
         [STAThread]
         public static void Main(string[] args)
@@ -28,25 +29,26 @@ namespace NovaCraftInstaller
             Application.ThreadException += (s, e) => HandleFatalError(e.Exception);
             AppDomain.CurrentDomain.UnhandledException += (s, e) => HandleFatalError(e.ExceptionObject as Exception);
 
-            Application.Run(new InstallerForm());
+            bool silent = args != null && Array.Exists(args, a => a.Equals("/silent", StringComparison.OrdinalIgnoreCase) || a.Equals("/s", StringComparison.OrdinalIgnoreCase) || a.Equals("-s", StringComparison.OrdinalIgnoreCase));
+            Application.Run(new InstallerForm(silent));
         }
 
-        private static void HandleFatalError(Exception ex)
+        private static void HandleFatalError(Exception? ex)
         {
             string msg = ex != null ? ex.Message : "不明なエラーが発生しました。";
             MessageBox.Show(
                 "セットアップ中に以下の問題が発生しました:\n" + msg + "\n\n" +
                 "【一番簡単な解決方法】\n" +
-                "GitHub から 'NovaCraft-Windows-v1.0.0.zip' を直接ダウンロードして解凍し、\n" +
-                "中にある 'NovaCraft.exe' を直接起動してください（インストール不要で遊べます）。",
+                "GitHub から 'NovaCraft-Setup.exe' を再ダウンロードして起動してください。",
                 "NovaCraft セットアップ案内",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information
             );
         }
 
-        public InstallerForm()
+        public InstallerForm(bool silent = false)
         {
+            this.isSilent = silent;
             this.Text = "NovaCraft セットアップ (Ultimate Voxel Sandbox)";
             this.Size = new Size(540, 280);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -114,6 +116,17 @@ namespace NovaCraftInstaller
             startButton.FlatAppearance.BorderSize = 0;
             startButton.Click += StartButton_Click;
             this.Controls.Add(startButton);
+
+            if (this.isSilent)
+            {
+                this.Shown += (s, e) =>
+                {
+                    startButton.Enabled = false;
+                    Thread installThread = new Thread(DoInstall);
+                    installThread.IsBackground = true;
+                    installThread.Start();
+                };
+            }
         }
 
         private void StartButton_Click(object sender, EventArgs e)
@@ -148,91 +161,139 @@ namespace NovaCraftInstaller
                     Directory.CreateDirectory(installDir);
                 }
 
-                // 1. Check if game files are locally available in directory
-                string currentDir = AppDomain.CurrentDomain.BaseDirectory;
-                string localPublish = Path.Combine(currentDir, "publish_selfcontained");
-                if (!Directory.Exists(localPublish) || !File.Exists(Path.Combine(localPublish, "NovaCraft.exe")))
+                // 0. Check for Embedded ZIP Payload (Highest priority: 100% self-contained offline installer!)
+                bool installedFromPayload = false;
+                var assembly = typeof(InstallerForm).Assembly;
+                string[] resNames = assembly.GetManifestResourceNames();
+                string payloadRes = null;
+                foreach (string name in resNames)
                 {
-                    localPublish = Path.Combine(currentDir, "publish_fx");
-                }
-                if (!Directory.Exists(localPublish) || !File.Exists(Path.Combine(localPublish, "NovaCraft.exe")))
-                {
-                    localPublish = currentDir;
-                }
-
-                bool hasLocalGame = File.Exists(Path.Combine(localPublish, "NovaCraft.exe")) && Directory.Exists(Path.Combine(localPublish, "wwwroot"));
-
-                // 2. Check if package ZIP is locally available next to installer
-                string localZip = Path.Combine(currentDir, "NovaCraft-Windows-v1.0.0.zip");
-                if (!File.Exists(localZip))
-                {
-                    string[] zips = Directory.GetFiles(currentDir, "*.zip");
-                    if (zips.Length > 0) localZip = zips[0];
-                }
-
-                if (hasLocalGame && localPublish != installDir)
-                {
-                    SetStatus("ローカルゲームファイルをコピー中...", 30);
-                    CopyDirectory(localPublish, installDir);
-                    SetStatus("コピー完了", 80);
-                }
-                else if (File.Exists(localZip))
-                {
-                    SetStatus("ローカルパッケージ ZIP から高速展開中 (通信不要)...", 30);
-                    ExtractZipZeroDependency(localZip, installDir);
-                    SetStatus("展開完了", 80);
-                }
-                else if (!File.Exists(Path.Combine(installDir, "NovaCraft.exe")))
-                {
-                    // Need to download package from GitHub with User-Agent & Retry logic
-                    SetStatus("最新のゲームパッケージをダウンロード中...", 20);
-                    string tempZip = Path.Combine(Path.GetTempPath(), "NovaCraft-Setup-Temp.zip");
-
-                    bool downloaded = false;
-                    string lastError = "";
-
-                    for (int attempt = 1; attempt <= 3; attempt++)
+                    if (name.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                     {
-                        try
-                        {
-                            if (File.Exists(tempZip)) File.Delete(tempZip);
-                            using (WebClient client = new WebClient())
-                            {
-                                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)12288 | SecurityProtocolType.Tls;
-                                client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-                                client.DownloadProgressChanged += (s, ev) =>
-                                {
-                                    SetStatus(string.Format("ダウンロード中: {0}% ({1:0.0} MB / {2:0.0} MB)",
-                                        ev.ProgressPercentage,
-                                        ev.BytesReceived / (1024.0 * 1024.0),
-                                        ev.TotalBytesToReceive / (1024.0 * 1024.0)),
-                                        20 + (int)(ev.ProgressPercentage * 0.5));
-                                };
-                                client.DownloadFile(new Uri(releaseZipUrl), tempZip);
-                            }
+                        payloadRes = name;
+                        break;
+                    }
+                }
 
-                            if (File.Exists(tempZip) && new FileInfo(tempZip).Length > 10000000)
-                            {
-                                downloaded = true;
-                                break;
-                            }
-                        }
-                        catch (Exception ex)
+                if (!string.IsNullOrEmpty(payloadRes))
+                {
+                    SetStatus("内蔵ゲームパッケージを展開中 (通信不要・高速セットアップ)...", 25);
+                    string tempZip = Path.Combine(Path.GetTempPath(), "NovaCraft-Setup-Payload-" + Guid.NewGuid().ToString("N") + ".zip");
+                    using (Stream stream = assembly.GetManifestResourceStream(payloadRes))
+                    using (FileStream fs = new FileStream(tempZip, FileMode.Create, FileAccess.Write))
+                    {
+                        byte[] buffer = new byte[81920];
+                        long totalBytes = stream.Length;
+                        long readBytes = 0;
+                        int read;
+                        while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
                         {
-                            lastError = ex.Message;
-                            SetStatus(string.Format("ダウンロード再試行中 ({0}/3)...", attempt), 20);
-                            Thread.Sleep(1500);
+                            fs.Write(buffer, 0, read);
+                            readBytes += read;
+                            int pct = 25 + (int)((readBytes / (double)totalBytes) * 35);
+                            SetStatus($"内蔵ゲームパッケージを準備中... {pct}%", pct);
                         }
                     }
 
-                    if (!downloaded)
-                    {
-                        throw new Exception("ゲームファイルのダウンロードに失敗しました: " + lastError + "\n\nブラウザから 'NovaCraft-Windows-v1.8.0.zip' を直接ダウンロードして解凍することをお勧めします。");
-                    }
-
-                    SetStatus("ゲームファイルを展開中...", 75);
+                    SetStatus("ゲームファイルを配置中...", 65);
                     ExtractZipZeroDependency(tempZip, installDir);
                     try { File.Delete(tempZip); } catch { }
+                    installedFromPayload = true;
+                    SetStatus("展開完了", 85);
+                }
+
+                if (!installedFromPayload)
+                {
+                    // 1. Check if game files are locally available in directory
+                    string currentDir = AppDomain.CurrentDomain.BaseDirectory;
+                    string localPublish = Path.Combine(currentDir, "publish_selfcontained");
+                    if (!Directory.Exists(localPublish) || !File.Exists(Path.Combine(localPublish, "NovaCraft.exe")))
+                    {
+                        localPublish = Path.Combine(currentDir, "publish_fx");
+                    }
+                    if (!Directory.Exists(localPublish) || !File.Exists(Path.Combine(localPublish, "NovaCraft.exe")))
+                    {
+                        localPublish = currentDir;
+                    }
+
+                    bool hasLocalGame = File.Exists(Path.Combine(localPublish, "NovaCraft.exe")) && Directory.Exists(Path.Combine(localPublish, "wwwroot"));
+
+                    // 2. Check if package ZIP is locally available next to installer
+                    string localZip = Path.Combine(currentDir, "NovaCraft-Windows-v2.2.0.zip");
+                    if (!File.Exists(localZip))
+                    {
+                        localZip = Path.Combine(currentDir, "NovaCraft-Windows-v1.0.0.zip");
+                    }
+                    if (!File.Exists(localZip))
+                    {
+                        string[] zips = Directory.GetFiles(currentDir, "*.zip");
+                        if (zips.Length > 0) localZip = zips[0];
+                    }
+
+                    if (hasLocalGame && localPublish != installDir)
+                    {
+                        SetStatus("ローカルゲームファイルをコピー中...", 30);
+                        CopyDirectory(localPublish, installDir);
+                        SetStatus("コピー完了", 80);
+                    }
+                    else if (File.Exists(localZip))
+                    {
+                        SetStatus("ローカルパッケージ ZIP から高速展開中 (通信不要)...", 30);
+                        ExtractZipZeroDependency(localZip, installDir);
+                        SetStatus("展開完了", 80);
+                    }
+                    else if (!File.Exists(Path.Combine(installDir, "NovaCraft.exe")))
+                    {
+                        // Need to download package from GitHub with User-Agent & Retry logic
+                        SetStatus("最新のゲームパッケージをダウンロード中...", 20);
+                        string tempZip = Path.Combine(Path.GetTempPath(), "NovaCraft-Setup-Temp.zip");
+
+                        bool downloaded = false;
+                        string lastError = "";
+
+                        for (int attempt = 1; attempt <= 3; attempt++)
+                        {
+                            try
+                            {
+                                if (File.Exists(tempZip)) File.Delete(tempZip);
+                                using (WebClient client = new WebClient())
+                                {
+                                    ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)12288 | SecurityProtocolType.Tls;
+                                    client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                                    client.DownloadProgressChanged += (s, ev) =>
+                                    {
+                                        SetStatus(string.Format("ダウンロード中: {0}% ({1:0.0} MB / {2:0.0} MB)",
+                                            ev.ProgressPercentage,
+                                            ev.BytesReceived / (1024.0 * 1024.0),
+                                            ev.TotalBytesToReceive / (1024.0 * 1024.0)),
+                                            20 + (int)(ev.ProgressPercentage * 0.5));
+                                    };
+                                    client.DownloadFile(new Uri(releaseZipUrl), tempZip);
+                                }
+
+                                if (File.Exists(tempZip) && new FileInfo(tempZip).Length > 10000000)
+                                {
+                                    downloaded = true;
+                                    break;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                lastError = ex.Message;
+                                SetStatus(string.Format("ダウンロード再試行中 ({0}/3)...", attempt), 20);
+                                Thread.Sleep(1500);
+                            }
+                        }
+
+                        if (!downloaded)
+                        {
+                            throw new Exception("ゲームファイルのダウンロードに失敗しました: " + lastError + "\n\nブラウザから 'NovaCraft-Windows-v2.2.0.zip' を直接ダウンロードして解凍することをお勧めします。");
+                        }
+
+                        SetStatus("ゲームファイルを展開中...", 75);
+                        ExtractZipZeroDependency(tempZip, installDir);
+                        try { File.Delete(tempZip); } catch { }
+                    }
                 }
 
                 // Create Desktop Shortcuts
@@ -271,6 +332,18 @@ namespace NovaCraftInstaller
 
                 this.BeginInvoke(new Action(() =>
                 {
+                    if (this.isSilent)
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = targetExe,
+                            WorkingDirectory = workingDir,
+                            UseShellExecute = true
+                        });
+                        this.Close();
+                        return;
+                    }
+
                     DialogResult res = MessageBox.Show(
                         "NovaCraft のインストールが正常に完了しました！\n\n" +
                         "★ ホーム画面 (デスクトップ) にアイコンを追加しました。\n\n" +
@@ -321,13 +394,20 @@ namespace NovaCraftInstaller
             }
         }
 
-        // 100% Zero-Dependency ZIP Extraction using Windows Shell COM (No System.IO.Compression.FileSystem.dll required!)
+        // Fast & Safe ZIP Extraction (Native .NET ZipFile -> Windows Shell COM -> PowerShell fallback)
         private void ExtractZipZeroDependency(string zipPath, string extractPath)
         {
             if (!Directory.Exists(extractPath))
             {
                 Directory.CreateDirectory(extractPath);
             }
+
+            try
+            {
+                System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, extractPath, true);
+                return;
+            }
+            catch { }
 
             try
             {
