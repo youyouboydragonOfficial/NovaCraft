@@ -4,5 +4,7 @@ obj/
 *.user
 publish/
 publish_installer/
+publish_portable/
 *.zip
 NovaCraft-Setup.exe
+NovaCraft.exe
